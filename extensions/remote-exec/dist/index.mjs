@@ -32,7 +32,7 @@ var __toESM = (mod, isNodeMode, target) => {
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
 var __require = /* @__PURE__ */ createRequire(import.meta.url);
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/identity.js
+// node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS((exports) => {
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
@@ -86,7 +86,7 @@ var require_identity = __commonJS((exports) => {
   exports.isSeq = isSeq;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/visit.js
+// node_modules/yaml/dist/visit.js
 var require_visit = __commonJS((exports) => {
   var identity = require_identity();
   var BREAK = Symbol("break visit");
@@ -241,7 +241,7 @@ var require_visit = __commonJS((exports) => {
   exports.visitAsync = visitAsync;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/doc/directives.js
+// node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS((exports) => {
   var identity = require_identity();
   var visit = require_visit();
@@ -393,7 +393,7 @@ var require_directives = __commonJS((exports) => {
   exports.Directives = Directives;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/doc/anchors.js
+// node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS((exports) => {
   var identity = require_identity();
   var visit = require_visit();
@@ -455,7 +455,7 @@ var require_anchors = __commonJS((exports) => {
   exports.findNewAnchor = findNewAnchor;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/doc/applyReviver.js
+// node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS((exports) => {
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
@@ -502,7 +502,7 @@ var require_applyReviver = __commonJS((exports) => {
   exports.applyReviver = applyReviver;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/toJS.js
+// node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS((exports) => {
   var identity = require_identity();
   function toJS(value, arg, ctx) {
@@ -529,7 +529,7 @@ var require_toJS = __commonJS((exports) => {
   exports.toJS = toJS;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/Node.js
+// node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS((exports) => {
   var applyReviver = require_applyReviver();
   var identity = require_identity();
@@ -566,7 +566,7 @@ var require_Node = __commonJS((exports) => {
   exports.NodeBase = NodeBase;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/Alias.js
+// node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS((exports) => {
   var anchors = require_anchors();
   var visit = require_visit();
@@ -676,7 +676,7 @@ var require_Alias = __commonJS((exports) => {
   exports.Alias = Alias;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/Scalar.js
+// node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS((exports) => {
   var identity = require_identity();
   var Node = require_Node();
@@ -704,7 +704,7 @@ var require_Scalar = __commonJS((exports) => {
   exports.isScalarValue = isScalarValue;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/doc/createNode.js
+// node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS((exports) => {
   var Alias = require_Alias();
   var identity = require_identity();
@@ -776,7 +776,7 @@ var require_createNode = __commonJS((exports) => {
   exports.createNode = createNode;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/Collection.js
+// node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS((exports) => {
   var createNode = require_createNode();
   var identity = require_identity();
@@ -891,7 +891,7 @@ var require_Collection = __commonJS((exports) => {
   exports.isEmptyPath = isEmptyPath;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyComment.js
+// node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS((exports) => {
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
@@ -908,7 +908,7 @@ var require_stringifyComment = __commonJS((exports) => {
   exports.stringifyComment = stringifyComment;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/foldFlowLines.js
+// node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS((exports) => {
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
@@ -1045,7 +1045,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
   exports.foldFlowLines = foldFlowLines;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyString.js
+// node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var foldFlowLines = require_foldFlowLines();
@@ -1343,7 +1343,7 @@ ${indent}`);
   exports.stringifyString = stringifyString;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringify.js
+// node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS((exports) => {
   var anchors = require_anchors();
   var identity = require_identity();
@@ -1464,7 +1464,7 @@ ${ctx.indent}${str}`;
   exports.stringify = stringify;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyPair.js
+// node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS((exports) => {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -1600,7 +1600,7 @@ ${ctx.indent}`;
   exports.stringifyPair = stringifyPair;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/log.js
+// node_modules/yaml/dist/log.js
 var require_log = __commonJS((exports) => {
   var node_process = __require("process");
   function debug(logLevel, ...messages) {
@@ -1619,7 +1619,7 @@ var require_log = __commonJS((exports) => {
   exports.warn = warn;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS((exports) => {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -1676,7 +1676,7 @@ var require_merge = __commonJS((exports) => {
   exports.merge = merge;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS((exports) => {
   var log = require_log();
   var merge = require_merge();
@@ -1737,7 +1737,7 @@ var require_addPairToJSMap = __commonJS((exports) => {
   exports.addPairToJSMap = addPairToJSMap;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/Pair.js
+// node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS((exports) => {
   var createNode = require_createNode();
   var stringifyPair = require_stringifyPair();
@@ -1775,7 +1775,7 @@ var require_Pair = __commonJS((exports) => {
   exports.createPair = createPair;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyCollection.js
+// node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS((exports) => {
   var identity = require_identity();
   var stringify = require_stringify();
@@ -1927,7 +1927,7 @@ ${indent}${end}`;
   exports.stringifyCollection = stringifyCollection;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/YAMLMap.js
+// node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS((exports) => {
   var stringifyCollection = require_stringifyCollection();
   var addPairToJSMap = require_addPairToJSMap();
@@ -2054,7 +2054,7 @@ var require_YAMLMap = __commonJS((exports) => {
   exports.findPair = findPair;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/common/map.js
+// node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS((exports) => {
   var identity = require_identity();
   var YAMLMap = require_YAMLMap();
@@ -2073,7 +2073,7 @@ var require_map = __commonJS((exports) => {
   exports.map = map;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/nodes/YAMLSeq.js
+// node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS((exports) => {
   var createNode = require_createNode();
   var stringifyCollection = require_stringifyCollection();
@@ -2166,7 +2166,7 @@ var require_YAMLSeq = __commonJS((exports) => {
   exports.YAMLSeq = YAMLSeq;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/common/seq.js
+// node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS((exports) => {
   var identity = require_identity();
   var YAMLSeq = require_YAMLSeq();
@@ -2185,7 +2185,7 @@ var require_seq = __commonJS((exports) => {
   exports.seq = seq;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/common/string.js
+// node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS((exports) => {
   var stringifyString = require_stringifyString();
   var string = {
@@ -2201,7 +2201,7 @@ var require_string = __commonJS((exports) => {
   exports.string = string;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/common/null.js
+// node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var nullTag = {
@@ -2216,7 +2216,7 @@ var require_null = __commonJS((exports) => {
   exports.nullTag = nullTag;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/core/bool.js
+// node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var boolTag = {
@@ -2237,7 +2237,7 @@ var require_bool = __commonJS((exports) => {
   exports.boolTag = boolTag;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyNumber.js
+// node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS((exports) => {
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
@@ -2261,7 +2261,7 @@ var require_stringifyNumber = __commonJS((exports) => {
   exports.stringifyNumber = stringifyNumber;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/core/float.js
+// node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var stringifyNumber = require_stringifyNumber();
@@ -2304,7 +2304,7 @@ var require_float = __commonJS((exports) => {
   exports.floatNaN = floatNaN;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/core/int.js
+// node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS((exports) => {
   var stringifyNumber = require_stringifyNumber();
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2346,7 +2346,7 @@ var require_int = __commonJS((exports) => {
   exports.intOct = intOct;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/core/schema.js
+// node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS((exports) => {
   var map = require_map();
   var _null = require_null();
@@ -2371,7 +2371,7 @@ var require_schema = __commonJS((exports) => {
   exports.schema = schema;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/json/schema.js
+// node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var map = require_map();
@@ -2435,7 +2435,7 @@ var require_schema2 = __commonJS((exports) => {
   exports.schema = schema;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS((exports) => {
   var node_buffer = __require("buffer");
   var Scalar = require_Scalar();
@@ -2490,7 +2490,7 @@ var require_binary = __commonJS((exports) => {
   exports.binary = binary;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS((exports) => {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -2565,7 +2565,7 @@ ${cn.comment}` : item.comment;
   exports.resolvePairs = resolvePairs;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS((exports) => {
   var identity = require_identity();
   var toJS = require_toJS();
@@ -2637,7 +2637,7 @@ var require_omap = __commonJS((exports) => {
   exports.omap = omap;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS((exports) => {
   var Scalar = require_Scalar();
   function boolStringify({ value, source }, ctx) {
@@ -2666,7 +2666,7 @@ var require_bool2 = __commonJS((exports) => {
   exports.trueTag = trueTag;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var stringifyNumber = require_stringifyNumber();
@@ -2712,7 +2712,7 @@ var require_float2 = __commonJS((exports) => {
   exports.floatNaN = floatNaN;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS((exports) => {
   var stringifyNumber = require_stringifyNumber();
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2788,7 +2788,7 @@ var require_int2 = __commonJS((exports) => {
   exports.intOct = intOct;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS((exports) => {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -2871,7 +2871,7 @@ var require_set = __commonJS((exports) => {
   exports.set = set;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS((exports) => {
   var stringifyNumber = require_stringifyNumber();
   function parseSexagesimal(str, asBigInt) {
@@ -2953,7 +2953,7 @@ var require_timestamp = __commonJS((exports) => {
   exports.timestamp = timestamp;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS((exports) => {
   var map = require_map();
   var _null = require_null();
@@ -2994,7 +2994,7 @@ var require_schema3 = __commonJS((exports) => {
   exports.schema = schema;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/tags.js
+// node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS((exports) => {
   var map = require_map();
   var _null = require_null();
@@ -3085,7 +3085,7 @@ var require_tags = __commonJS((exports) => {
   exports.getTags = getTags;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/schema/Schema.js
+// node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS((exports) => {
   var identity = require_identity();
   var map = require_map();
@@ -3115,7 +3115,7 @@ var require_Schema = __commonJS((exports) => {
   exports.Schema = Schema;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/stringify/stringifyDocument.js
+// node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS((exports) => {
   var identity = require_identity();
   var stringify = require_stringify();
@@ -3195,7 +3195,7 @@ var require_stringifyDocument = __commonJS((exports) => {
   exports.stringifyDocument = stringifyDocument;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/doc/Document.js
+// node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS((exports) => {
   var Alias = require_Alias();
   var Collection = require_Collection();
@@ -3430,7 +3430,7 @@ var require_Document = __commonJS((exports) => {
   exports.Document = Document;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/errors.js
+// node_modules/yaml/dist/errors.js
 var require_errors = __commonJS((exports) => {
   class YAMLError extends Error {
     constructor(name, pos, code, message) {
@@ -3495,7 +3495,7 @@ ${pointer}
   exports.prettifyError = prettifyError;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-props.js
+// node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS((exports) => {
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
@@ -3625,7 +3625,7 @@ var require_resolve_props = __commonJS((exports) => {
   exports.resolveProps = resolveProps;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/util-contains-newline.js
+// node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS((exports) => {
   function containsNewline(key) {
     if (!key)
@@ -3665,7 +3665,7 @@ var require_util_contains_newline = __commonJS((exports) => {
   exports.containsNewline = containsNewline;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS((exports) => {
   var utilContainsNewline = require_util_contains_newline();
   function flowIndentCheck(indent, fc, onError) {
@@ -3680,7 +3680,7 @@ var require_util_flow_indent_check = __commonJS((exports) => {
   exports.flowIndentCheck = flowIndentCheck;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/util-map-includes.js
+// node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS((exports) => {
   var identity = require_identity();
   function mapIncludes(ctx, items, search) {
@@ -3693,7 +3693,7 @@ var require_util_map_includes = __commonJS((exports) => {
   exports.mapIncludes = mapIncludes;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-block-map.js
+// node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS((exports) => {
   var Pair = require_Pair();
   var YAMLMap = require_YAMLMap();
@@ -3800,7 +3800,7 @@ var require_resolve_block_map = __commonJS((exports) => {
   exports.resolveBlockMap = resolveBlockMap;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-block-seq.js
+// node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS((exports) => {
   var YAMLSeq = require_YAMLSeq();
   var resolveProps = require_resolve_props();
@@ -3848,7 +3848,7 @@ var require_resolve_block_seq = __commonJS((exports) => {
   exports.resolveBlockSeq = resolveBlockSeq;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-end.js
+// node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS((exports) => {
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
@@ -3888,7 +3888,7 @@ var require_resolve_end = __commonJS((exports) => {
   exports.resolveEnd = resolveEnd;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS((exports) => {
   var identity = require_identity();
   var Pair = require_Pair();
@@ -4079,7 +4079,7 @@ var require_resolve_flow_collection = __commonJS((exports) => {
   exports.resolveFlowCollection = resolveFlowCollection;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/compose-collection.js
+// node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS((exports) => {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -4141,7 +4141,7 @@ var require_compose_collection = __commonJS((exports) => {
   exports.composeCollection = composeCollection;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS((exports) => {
   var Scalar = require_Scalar();
   function resolveBlockScalar(ctx, scalar, onError) {
@@ -4334,7 +4334,7 @@ var require_resolve_block_scalar = __commonJS((exports) => {
   exports.resolveBlockScalar = resolveBlockScalar;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS((exports) => {
   var Scalar = require_Scalar();
   var resolveEnd = require_resolve_end();
@@ -4551,7 +4551,7 @@ var require_resolve_flow_scalar = __commonJS((exports) => {
   exports.resolveFlowScalar = resolveFlowScalar;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/compose-scalar.js
+// node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS((exports) => {
   var identity = require_identity();
   var Scalar = require_Scalar();
@@ -4629,7 +4629,7 @@ var require_compose_scalar = __commonJS((exports) => {
   exports.composeScalar = composeScalar;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS((exports) => {
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
@@ -4656,7 +4656,7 @@ var require_util_empty_scalar_position = __commonJS((exports) => {
   exports.emptyScalarPosition = emptyScalarPosition;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/compose-node.js
+// node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS((exports) => {
   var Alias = require_Alias();
   var identity = require_identity();
@@ -4759,7 +4759,7 @@ var require_compose_node = __commonJS((exports) => {
   exports.composeNode = composeNode;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/compose-doc.js
+// node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS((exports) => {
   var Document = require_Document();
   var composeNode = require_compose_node();
@@ -4799,7 +4799,7 @@ var require_compose_doc = __commonJS((exports) => {
   exports.composeDoc = composeDoc;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/compose/composer.js
+// node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS((exports) => {
   var node_process = __require("process");
   var directives = require_directives();
@@ -4988,7 +4988,7 @@ ${end.comment}` : end.comment;
   exports.Composer = Composer;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/cst-scalar.js
+// node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS((exports) => {
   var resolveBlockScalar = require_resolve_block_scalar();
   var resolveFlowScalar = require_resolve_flow_scalar();
@@ -5178,7 +5178,7 @@ var require_cst_scalar = __commonJS((exports) => {
   exports.setScalarValue = setScalarValue;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/cst-stringify.js
+// node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS((exports) => {
   var stringify = (cst) => ("type" in cst) ? stringifyToken(cst) : stringifyItem(cst);
   function stringifyToken(token) {
@@ -5236,7 +5236,7 @@ var require_cst_stringify = __commonJS((exports) => {
   exports.stringify = stringify;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/cst-visit.js
+// node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS((exports) => {
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
@@ -5295,7 +5295,7 @@ var require_cst_visit = __commonJS((exports) => {
   exports.visit = visit;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/cst.js
+// node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS((exports) => {
   var cstScalar = require_cst_scalar();
   var cstStringify = require_cst_stringify();
@@ -5396,7 +5396,7 @@ var require_cst = __commonJS((exports) => {
   exports.tokenType = tokenType;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/lexer.js
+// node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS((exports) => {
   var cst = require_cst();
   function isEmpty(ch) {
@@ -5982,7 +5982,7 @@ var require_lexer = __commonJS((exports) => {
   exports.Lexer = Lexer;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/line-counter.js
+// node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS((exports) => {
   class LineCounter {
     constructor() {
@@ -6010,7 +6010,7 @@ var require_line_counter = __commonJS((exports) => {
   exports.LineCounter = LineCounter;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/parse/parser.js
+// node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS((exports) => {
   var node_process = __require("process");
   var cst = require_cst();
@@ -6859,7 +6859,7 @@ var require_parser = __commonJS((exports) => {
   exports.Parser = Parser;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/public-api.js
+// node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS((exports) => {
   var composer = require_composer();
   var Document = require_Document();
@@ -6953,7 +6953,7 @@ var require_public_api = __commonJS((exports) => {
   exports.stringify = stringify;
 });
 
-// extensions/remote-exec/node_modules/yaml/dist/index.js
+// node_modules/yaml/dist/index.js
 var require_dist = __commonJS((exports) => {
   var composer = require_composer();
   var Document = require_Document();
@@ -7002,7 +7002,7 @@ var require_dist = __commonJS((exports) => {
   exports.visitAsync = visit.visitAsync;
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/ber/errors.js
+// node_modules/asn1/lib/ber/errors.js
 var require_errors2 = __commonJS((exports, module) => {
   module.exports = {
     newInvalidAsn1Error: function(msg) {
@@ -7014,7 +7014,7 @@ var require_errors2 = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/ber/types.js
+// node_modules/asn1/lib/ber/types.js
 var require_types = __commonJS((exports, module) => {
   module.exports = {
     EOC: 0,
@@ -7051,7 +7051,7 @@ var require_types = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/safer-buffer/safer.js
+// node_modules/safer-buffer/safer.js
 var require_safer = __commonJS((exports, module) => {
   var buffer = __require("buffer");
   var Buffer2 = buffer.Buffer;
@@ -7119,7 +7119,7 @@ var require_safer = __commonJS((exports, module) => {
   module.exports = safer;
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/ber/reader.js
+// node_modules/asn1/lib/ber/reader.js
 var require_reader = __commonJS((exports, module) => {
   var assert = __require("assert");
   var Buffer2 = require_safer().Buffer;
@@ -7282,7 +7282,7 @@ var require_reader = __commonJS((exports, module) => {
   module.exports = Reader;
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/ber/writer.js
+// node_modules/asn1/lib/ber/writer.js
 var require_writer = __commonJS((exports, module) => {
   var assert = __require("assert");
   var Buffer2 = require_safer().Buffer;
@@ -7523,7 +7523,7 @@ var require_writer = __commonJS((exports, module) => {
   module.exports = Writer;
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/ber/index.js
+// node_modules/asn1/lib/ber/index.js
 var require_ber = __commonJS((exports, module) => {
   var errors = require_errors2();
   var types = require_types();
@@ -7545,7 +7545,7 @@ var require_ber = __commonJS((exports, module) => {
   var e;
 });
 
-// extensions/remote-exec/node_modules/asn1/lib/index.js
+// node_modules/asn1/lib/index.js
 var require_lib = __commonJS((exports, module) => {
   var Ber = require_ber();
   module.exports = {
@@ -7555,7 +7555,7 @@ var require_lib = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/tweetnacl/nacl-fast.js
+// node_modules/tweetnacl/nacl-fast.js
 var require_nacl_fast = __commonJS((exports, module) => {
   (function(nacl) {
     var gf = function(init) {
@@ -9849,7 +9849,7 @@ var require_nacl_fast = __commonJS((exports, module) => {
   })(typeof module !== "undefined" && exports ? exports : self.nacl = self.nacl || {});
 });
 
-// extensions/remote-exec/node_modules/bcrypt-pbkdf/index.js
+// node_modules/bcrypt-pbkdf/index.js
 var require_bcrypt_pbkdf = __commonJS((exports, module) => {
   var crypto_hash_sha512 = require_nacl_fast().lowlevel.crypto_hash;
   var BLF_J = 0;
@@ -11100,18 +11100,18 @@ var require_bcrypt_pbkdf = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/cpu-features/build/Release/cpufeatures.node
+// node_modules/cpu-features/build/Release/cpufeatures.node
 var require_cpufeatures = __commonJS((exports, module) => {
   module.exports = __require("./cpufeatures-2c04nnbs.node");
 });
 
-// extensions/remote-exec/node_modules/cpu-features/lib/index.js
+// node_modules/cpu-features/lib/index.js
 var require_lib2 = __commonJS((exports, module) => {
   var binding = require_cpufeatures();
   module.exports = binding.getCPUInfo;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/constants.js
+// node_modules/ssh2/lib/protocol/constants.js
 var require_constants = __commonJS((exports, module) => {
   var crypto = __require("crypto");
   var cpuInfo;
@@ -11403,7 +11403,7 @@ MC4CAQAwBQYDK2VwBCIEIHKj+sVa9WcD` + `/q2DJUJaf43Kptc8xYuUQA4bOFj9vC8T\r
   module.exports.DISCONNECT_REASON_BY_VALUE = Array.from(Object.entries(module.exports.DISCONNECT_REASON)).reduce((obj, [key, value]) => ({ ...obj, [value]: key }), {});
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/utils.js
+// node_modules/ssh2/lib/protocol/utils.js
 var require_utils = __commonJS((exports, module) => {
   var Ber = require_lib().Ber;
   var DISCONNECT_REASON;
@@ -11713,12 +11713,12 @@ var require_utils = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/crypto/build/Release/sshcrypto.node
+// node_modules/ssh2/lib/protocol/crypto/build/Release/sshcrypto.node
 var require_sshcrypto = __commonJS((exports, module) => {
   module.exports = __require("./sshcrypto-qj2ah1zq.node");
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/crypto/poly1305.js
+// node_modules/ssh2/lib/protocol/crypto/poly1305.js
 var require_poly1305 = __commonJS((exports, module) => {
   var __dirname = "F:\\111\\Iris\\extensions\\remote-exec\\node_modules\\ssh2\\lib\\protocol\\crypto", __filename = "F:\\111\\Iris\\extensions\\remote-exec\\node_modules\\ssh2\\lib\\protocol\\crypto\\poly1305.js";
   var createPoly1305 = function() {
@@ -12180,7 +12180,7 @@ var require_poly1305 = __commonJS((exports, module) => {
     exports["createPoly1305"] = createPoly1305;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/crypto.js
+// node_modules/ssh2/lib/protocol/crypto.js
 var require_crypto = __commonJS((exports, module) => {
   var {
     createCipheriv,
@@ -13334,7 +13334,7 @@ var require_crypto = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/keyParser.js
+// node_modules/ssh2/lib/protocol/keyParser.js
 var require_keyParser = __commonJS((exports, module) => {
   var {
     createDecipheriv,
@@ -14491,7 +14491,7 @@ ${formatted}-----END ${type} KEY-----`;
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/agent.js
+// node_modules/ssh2/lib/agent.js
 var require_agent = __commonJS((exports, module) => {
   var __dirname = "F:\\111\\Iris\\extensions\\remote-exec\\node_modules\\ssh2\\lib";
   var { Socket } = __require("net");
@@ -15288,7 +15288,7 @@ var require_agent = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/zlib.js
+// node_modules/ssh2/lib/protocol/zlib.js
 var require_zlib = __commonJS((exports, module) => {
   var { kMaxLength } = __require("buffer");
   var {
@@ -15489,7 +15489,7 @@ var require_zlib = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/handlers.misc.js
+// node_modules/ssh2/lib/protocol/handlers.misc.js
 var require_handlers_misc = __commonJS((exports, module) => {
   var {
     bufferSlice,
@@ -16266,7 +16266,7 @@ var require_handlers_misc = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/handlers.js
+// node_modules/ssh2/lib/protocol/handlers.js
 var require_handlers = __commonJS((exports, module) => {
   var MESSAGE_HANDLERS = new Array(256);
   [
@@ -16282,7 +16282,7 @@ var require_handlers = __commonJS((exports, module) => {
   module.exports = MESSAGE_HANDLERS;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/kex.js
+// node_modules/ssh2/lib/protocol/kex.js
 var require_kex = __commonJS((exports, module) => {
   var {
     createDiffieHellman,
@@ -17566,7 +17566,7 @@ var require_kex = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/package.json
+// node_modules/ssh2/package.json
 var require_package = __commonJS((exports, module) => {
   module.exports = {
     name: "ssh2",
@@ -17619,7 +17619,7 @@ var require_package = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/Protocol.js
+// node_modules/ssh2/lib/protocol/Protocol.js
 var require_Protocol = __commonJS((exports, module) => {
   var { inspect } = __require("util");
   var { bindingAvailable, NullCipher, NullDecipher } = require_crypto();
@@ -19050,7 +19050,7 @@ var require_Protocol = __commonJS((exports, module) => {
   module.exports = Protocol;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/node-fs-compat.js
+// node_modules/ssh2/lib/protocol/node-fs-compat.js
 var require_node_fs_compat = __commonJS((exports) => {
   var assert = __require("assert");
   var { inspect } = __require("util");
@@ -19146,7 +19146,7 @@ ${suffix}`;
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/protocol/SFTP.js
+// node_modules/ssh2/lib/protocol/SFTP.js
 var require_SFTP = __commonJS((exports, module) => {
   var EventEmitter = __require("events");
   var fs = __require("fs");
@@ -22049,7 +22049,7 @@ var require_SFTP = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/Channel.js
+// node_modules/ssh2/lib/Channel.js
 var require_Channel = __commonJS((exports, module) => {
   var {
     Duplex: DuplexStream,
@@ -22273,7 +22273,7 @@ var require_Channel = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/utils.js
+// node_modules/ssh2/lib/utils.js
 var require_utils2 = __commonJS((exports, module) => {
   var { SFTP } = require_SFTP();
   var MAX_CHANNEL = 2 ** 32 - 1;
@@ -22549,7 +22549,7 @@ var require_utils2 = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/client.js
+// node_modules/ssh2/lib/client.js
 var require_client = __commonJS((exports, module) => {
   var {
     createHash,
@@ -24216,7 +24216,7 @@ var require_client = __commonJS((exports, module) => {
   module.exports = Client;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/http-agents.js
+// node_modules/ssh2/lib/http-agents.js
 var require_http_agents = __commonJS((exports) => {
   var { Agent: HttpAgent } = __require("http");
   var { Agent: HttpsAgent } = __require("https");
@@ -24285,7 +24285,7 @@ var require_http_agents = __commonJS((exports) => {
   }
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/server.js
+// node_modules/ssh2/lib/server.js
 var require_server = __commonJS((exports, module) => {
   var { Server: netServer } = __require("net");
   var EventEmitter = __require("events");
@@ -25366,7 +25366,7 @@ var require_server = __commonJS((exports, module) => {
   module.exports.IncomingClient = Client;
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/keygen.js
+// node_modules/ssh2/lib/keygen.js
 var require_keygen = __commonJS((exports, module) => {
   var {
     createCipheriv,
@@ -25758,7 +25758,7 @@ var require_keygen = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/ssh2/lib/index.js
+// node_modules/ssh2/lib/index.js
 var require_lib3 = __commonJS((exports, module) => {
   var {
     AgentProtocol,
@@ -25803,7 +25803,7 @@ var require_lib3 = __commonJS((exports, module) => {
   };
 });
 
-// extensions/remote-exec/node_modules/irises-extension-sdk/src/logger.ts
+// node_modules/irises-extension-sdk/src/logger.ts
 var _logLevel = 1 /* INFO */;
 function createExtensionLogger(extensionName, tag) {
   const scope = tag ? `${extensionName}:${tag}` : extensionName;
@@ -25827,7 +25827,7 @@ function createExtensionLogger(extensionName, tag) {
   };
 }
 
-// extensions/remote-exec/node_modules/irises-extension-sdk/src/plugin/context.ts
+// node_modules/irises-extension-sdk/src/plugin/context.ts
 function createPluginLogger(pluginName, tag) {
   const scope = tag ? `Plugin:${pluginName}:${tag}` : `Plugin:${pluginName}`;
   return createExtensionLogger(scope);
@@ -25835,7 +25835,7 @@ function createPluginLogger(pluginName, tag) {
 function definePlugin(plugin) {
   return plugin;
 }
-// extensions/remote-exec/src/config-template.ts
+// src/config-template.ts
 var DEFAULT_REMOTE_EXEC_YAML = `# remote-exec 配置
 #
 # 让 AI 像在远端机器上原生运行本项目一样使用工具：
@@ -25866,6 +25866,10 @@ ssh:
   connectTimeoutMs: 10000
   keepAliveSec: 30
   commandTimeoutMs: 0
+  # 远端进程退出后，等待 stdout/stderr 排空的最长时间（毫秒）
+  # 解决 nohup/& 启动后台进程时 SSH channel 不自然关闭、工具调用挂起的问题
+  # 默认 200，正常命令几乎无感；设为 0 会退化为旧行为，不推荐
+  postExitDrainMs: 200
 `;
 var DEFAULT_REMOTE_EXEC_SERVERS_YAML = `# remote-exec 服务器清单
 #
@@ -25919,7 +25923,7 @@ servers:
   #   description: 临时账号（密码登录）
 `;
 
-// extensions/remote-exec/src/config.ts
+// src/config.ts
 var import_yaml = __toESM(require_dist(), 1);
 var LOCAL_ENV = "local";
 var DEFAULTS = {
@@ -25931,7 +25935,8 @@ var DEFAULTS = {
     reuseConnection: true,
     connectTimeoutMs: 1e4,
     keepAliveSec: 30,
-    commandTimeoutMs: 0
+    commandTimeoutMs: 0,
+    postExitDrainMs: 200
   }
 };
 function parseRemoteExecConfig(raw) {
@@ -25948,7 +25953,8 @@ function parseRemoteExecConfig(raw) {
       reuseConnection: ssh.reuseConnection !== false,
       connectTimeoutMs: toFiniteNumber(ssh.connectTimeoutMs, DEFAULTS.ssh.connectTimeoutMs),
       keepAliveSec: toFiniteNumber(ssh.keepAliveSec, DEFAULTS.ssh.keepAliveSec),
-      commandTimeoutMs: toFiniteNumber(ssh.commandTimeoutMs, DEFAULTS.ssh.commandTimeoutMs)
+      commandTimeoutMs: toFiniteNumber(ssh.commandTimeoutMs, DEFAULTS.ssh.commandTimeoutMs),
+      postExitDrainMs: toFiniteNumber(ssh.postExitDrainMs, DEFAULTS.ssh.postExitDrainMs)
     }
   };
 }
@@ -25956,7 +25962,7 @@ function toFiniteNumber(v, def) {
   return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : def;
 }
 
-// extensions/remote-exec/src/ssh-config.ts
+// src/ssh-config.ts
 function parseServersSectionDetailed(raw) {
   const out = new Map;
   const warnings = [];
@@ -26022,7 +26028,7 @@ function numberField(v) {
   return;
 }
 
-// extensions/remote-exec/src/transport.ts
+// src/transport.ts
 var import_ssh2 = __toESM(require_lib3(), 1);
 import { promises as fs } from "node:fs";
 
@@ -26073,12 +26079,32 @@ class SshTransport {
       let exitSignal;
       let timedOut = false;
       let timer;
+      let drainTimer;
       let onAbort;
+      let settled = false;
+      let currentStream;
       const cleanup = () => {
         if (timer)
           clearTimeout(timer);
+        if (drainTimer)
+          clearTimeout(drainTimer);
         if (signal && onAbort)
           signal.removeEventListener("abort", onAbort);
+      };
+      const settle = (forceClose) => {
+        if (settled)
+          return;
+        settled = true;
+        cleanup();
+        if (forceClose && currentStream) {
+          try {
+            currentStream.close?.();
+          } catch {}
+          try {
+            currentStream.destroy?.();
+          } catch {}
+        }
+        resolve({ stdout, stderr, exitCode, signal: exitSignal, timedOut });
       };
       client.exec(command, { pty: false }, (err, stream) => {
         if (err) {
@@ -26087,6 +26113,7 @@ class SshTransport {
           reject(err);
           return;
         }
+        currentStream = stream;
         if (this.sshCfg.commandTimeoutMs > 0) {
           timer = setTimeout(() => {
             timedOut = true;
@@ -26116,16 +26143,38 @@ class SshTransport {
           }
         }
         stream.on("close", (code, sig) => {
-          cleanup();
-          exitCode = code;
-          exitSignal = sig;
-          resolve({ stdout, stderr, exitCode, signal: exitSignal, timedOut });
+          if (exitCode === null && code !== null && code !== undefined)
+            exitCode = code;
+          if (!exitSignal && sig)
+            exitSignal = sig;
+          settle(false);
+        }).on("exit", (code, sig) => {
+          if (code !== null && code !== undefined)
+            exitCode = code;
+          if (sig)
+            exitSignal = sig;
+          if (!drainTimer && !settled) {
+            const drainMs = this.sshCfg.postExitDrainMs;
+            if (drainMs > 0) {
+              drainTimer = setTimeout(() => settle(true), drainMs);
+            } else {
+              settle(true);
+            }
+          }
+        }).on("error", (err2) => {
+          stderr += `[stream-error] ${err2.message}
+`;
+          if (!drainTimer && !settled) {
+            const drainMs = this.sshCfg.postExitDrainMs > 0 ? this.sshCfg.postExitDrainMs : 200;
+            drainTimer = setTimeout(() => settle(true), drainMs);
+          }
         }).on("data", (chunk) => {
           stdout += chunk.toString("utf8");
         });
         stream.stderr.on("data", (chunk) => {
           stderr += chunk.toString("utf8");
         });
+        stream.stderr.on("error", () => {});
         if (input !== undefined)
           stream.end(input);
         else
@@ -26142,10 +26191,13 @@ class SshTransport {
       let exitSignal;
       let timedOut = false;
       let timer;
+      let drainTimer;
       let onAbort;
       const cleanup = () => {
         if (timer)
           clearTimeout(timer);
+        if (drainTimer)
+          clearTimeout(drainTimer);
         if (signal && onAbort)
           signal.removeEventListener("abort", onAbort);
       };
@@ -26185,16 +26237,55 @@ class SshTransport {
           }
         }
         const done = new Promise((resolveDone) => {
-          stream.on("close", (code, sig) => {
+          let settled = false;
+          const finishDone = (forceClose) => {
+            if (settled)
+              return;
+            settled = true;
             cleanup();
-            exitCode = code;
-            exitSignal = sig;
+            if (forceClose) {
+              try {
+                stream.close();
+              } catch {}
+              try {
+                stream.destroy?.();
+              } catch {}
+            }
             resolveDone({ stdout: "", stderr, exitCode, signal: exitSignal, timedOut });
+          };
+          stream.on("close", (code, sig) => {
+            if (exitCode === null && code !== null && code !== undefined)
+              exitCode = code;
+            if (!exitSignal && sig)
+              exitSignal = sig;
+            finishDone(false);
+          });
+          stream.on("exit", (code, sig) => {
+            if (code !== null && code !== undefined)
+              exitCode = code;
+            if (sig)
+              exitSignal = sig;
+            if (!drainTimer && !settled) {
+              const drainMs = this.sshCfg.postExitDrainMs;
+              if (drainMs > 0)
+                drainTimer = setTimeout(() => finishDone(true), drainMs);
+              else
+                finishDone(true);
+            }
+          });
+          stream.on("error", (err2) => {
+            stderr += `[stream-error] ${err2.message}
+`;
+            if (!drainTimer && !settled) {
+              const drainMs = this.sshCfg.postExitDrainMs > 0 ? this.sshCfg.postExitDrainMs : 200;
+              drainTimer = setTimeout(() => finishDone(true), drainMs);
+            }
           });
           stream.stderr.on("data", (chunk) => {
             if (stderr.length < 64000)
               stderr += chunk.toString("utf8");
           });
+          stream.stderr.on("error", () => {});
         });
         resolve({
           stdin: stream,
@@ -26333,7 +26424,7 @@ async function buildConnectConfig(s, sshCfg) {
   return cfg;
 }
 
-// extensions/remote-exec/src/environment.ts
+// src/environment.ts
 class EnvironmentManager {
   api;
   getServers;
@@ -26414,7 +26505,7 @@ class EnvironmentManager {
   }
 }
 
-// extensions/remote-exec/src/tools.ts
+// src/tools.ts
 function buildSwitchEnvironmentTool(envMgr) {
   const envs = envMgr.listEnvs();
   const envNames = envs.map((e) => e.name);
@@ -26468,7 +26559,7 @@ function buildSwitchEnvironmentTool(envMgr) {
   };
 }
 
-// extensions/remote-exec/src/transfer-tool.ts
+// src/transfer-tool.ts
 import * as fs2 from "node:fs";
 import { promises as fsp } from "node:fs";
 import path from "node:path";
@@ -26476,7 +26567,7 @@ import { randomBytes } from "node:crypto";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-// extensions/remote-exec/src/remote-shell.ts
+// src/remote-shell.ts
 function shQuote(s) {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
@@ -26486,7 +26577,7 @@ function withCwd(command, cwd) {
   return `cd ${shQuote(cwd)} && ${command}`;
 }
 
-// extensions/remote-exec/src/transfer-tool.ts
+// src/transfer-tool.ts
 var TRANSFER_FILES_TOOL_NAME = "transfer_files";
 function buildTransferFilesTool(envMgr, getTransport) {
   const envs = envMgr.listEnvs();
@@ -27080,7 +27171,7 @@ class RemoteBashEndpoint {
   }
 }
 
-// extensions/remote-exec/src/console-display.ts
+// src/console-display.ts
 var CONSOLE_TOOL_DISPLAY_SERVICE_ID = "console:tool-display";
 var CONSOLE_SLASH_COMMAND_SERVICE_ID = "console:slash-command";
 var displayRegistration;
@@ -27262,10 +27353,10 @@ function formatDuration(sec) {
   return `${m}m${String(s).padStart(2, "0")}s`;
 }
 
-// extensions/remote-exec/src/translators.ts
+// src/translators.ts
 import path3 from "node:path";
 
-// extensions/remote-exec/node_modules/irises-extension-sdk/src/tool-utils.ts
+// node_modules/irises-extension-sdk/src/tool-utils.ts
 import * as path2 from "node:path";
 function normalizeLineEndings(text) {
   return text.replace(/\r\n/g, `
@@ -27793,7 +27884,7 @@ function normalizeDeleteCodeArgs(args) {
   });
 }
 
-// extensions/remote-exec/src/translators.ts
+// src/translators.ts
 var LIMITS = {
   read_file: { maxFiles: 10, maxFileSizeBytes: 2 * 1024 * 1024, maxTotalOutputChars: 200000 },
   list_files: { maxEntries: 2000 },
@@ -28657,7 +28748,7 @@ function listSupportedTools() {
   return Object.keys(TRANSLATORS);
 }
 
-// extensions/remote-exec/src/wrap.ts
+// src/wrap.ts
 function installToolWrappers(p) {
   const { api, envMgr, getConfig, getTransport, logger } = p;
   const wrappedTools = new WeakSet;
@@ -28737,7 +28828,7 @@ function installToolWrappers(p) {
   };
 }
 
-// extensions/remote-exec/src/index.ts
+// src/index.ts
 var logger = createPluginLogger("remote-exec");
 var cfg = parseRemoteExecConfig({});
 var servers = new Map;

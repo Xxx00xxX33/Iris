@@ -383,20 +383,27 @@ function copyEmbeddedExtensions(extensions: EmbeddedExtensionBuildTarget[], targ
     // npm prune --omit=dev 可清除 TypeScript、@types 等数百 MB 的开发依赖，
     // 避免打爆 npm 包体积限制（128 MB）。
     const targetNodeModules = path.join(targetDir, "node_modules")
-    if (fs.existsSync(targetNodeModules) && fs.existsSync(path.join(targetDir, "package.json"))) {
-      // 修复目标目录中 package.json 的 file: 依赖。
-      // 这些依赖已被 Bun 打包进 dist/index.mjs，运行时不需要。
-      // 但 npm prune 会尝试解析它们 —— 目标目录下的相对路径（如
-      // file:../../packages/extension-sdk）已经失效，导致 npm 误删包，
-      // Windows 上 Compress-Archive 随后因路径缺失而失败。
-      const targetPkgPath = path.join(targetDir, "package.json")
+    const targetPkgPath = path.join(targetDir, "package.json")
+    if (fs.existsSync(targetPkgPath)) {
+      // 修复目标目录中 package.json 的依赖声明。
+      //
+      // 扩展的 dist/index.mjs 已由 Bun 打包完成：non-external 依赖全部内联，
+      // 仅 external 列出的包需要由 node_modules 提供。
+      //
+      // 因此目标 package.json 必须只保留 external 中声明的依赖，否则运行时
+      // getMissingExtensionRuntimeDependencies 会因 dependencies 里有未安装
+      // 的包而抛错（之前的版本只删 file: 依赖，registry 依赖没清理）。
       const targetPkg = JSON.parse(fs.readFileSync(targetPkgPath, "utf8"))
+      const externalSet = new Set(extension.external)
       let pkgModified = false
       for (const field of ["dependencies", "devDependencies", "optionalDependencies"] as const) {
         const deps = targetPkg[field] as Record<string, string> | undefined
         if (!deps) continue
         for (const [name, version] of Object.entries(deps)) {
-          if (typeof version === "string" && version.startsWith("file:")) {
+          // 只保留：external 列表里的依赖（运行时仍需 require）。
+          // 删除：file: 本地依赖（路径已失效）+ 已被 bundle 的 registry 依赖。
+          const isExternal = field !== "devDependencies" && externalSet.has(name)
+          if (!isExternal) {
             delete deps[name]
             pkgModified = true
           }
@@ -406,13 +413,16 @@ function copyEmbeddedExtensions(extensions: EmbeddedExtensionBuildTarget[], targ
       if (pkgModified) {
         fs.writeFileSync(targetPkgPath, JSON.stringify(targetPkg, null, 2) + "\n")
       }
-      const pruneResult = Bun.spawnSync(
-        ["npm", "prune", "--omit=dev", "--no-audit", "--no-fund"],
-        { cwd: targetDir, stdio: ["ignore", "pipe", "pipe"] },
-      )
-      if (pruneResult.exitCode !== 0) {
-        const stderr = new TextDecoder().decode(pruneResult.stderr).trim()
-        if (stderr) console.warn(`  ⚠ prune warning for ${extension.name}: ${stderr}`)
+      // 仅当存在 node_modules 时才需要 prune（去掉 devDependencies 占用空间）
+      if (fs.existsSync(targetNodeModules)) {
+        const pruneResult = Bun.spawnSync(
+          ["npm", "prune", "--omit=dev", "--no-audit", "--no-fund"],
+          { cwd: targetDir, stdio: ["ignore", "pipe", "pipe"] },
+        )
+        if (pruneResult.exitCode !== 0) {
+          const stderr = new TextDecoder().decode(pruneResult.stderr).trim()
+          if (stderr) console.warn(`  ⚠ prune warning for ${extension.name}: ${stderr}`)
+        }
       }
     }
     console.log(`  ✓ extension copied: extensions/${extension.name}`)

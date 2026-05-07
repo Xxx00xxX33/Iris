@@ -16,41 +16,32 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = /* @__PURE__ */ createRequire(import.meta.url);
 
-// ../../packages/extension-sdk/dist/logger.js
+// extensions/console/node_modules/irises-extension-sdk/src/logger.ts
 function createExtensionLogger(extensionName, tag) {
   const scope = tag ? `${extensionName}:${tag}` : extensionName;
   return {
     debug: (...args) => {
-      if (_logLevel <= LogLevel.DEBUG)
+      if (_logLevel <= 0 /* DEBUG */)
         console.debug(`[${scope}]`, ...args);
     },
     info: (...args) => {
-      if (_logLevel <= LogLevel.INFO)
+      if (_logLevel <= 1 /* INFO */)
         console.log(`[${scope}]`, ...args);
     },
     warn: (...args) => {
-      if (_logLevel <= LogLevel.WARN)
+      if (_logLevel <= 2 /* WARN */)
         console.warn(`[${scope}]`, ...args);
     },
     error: (...args) => {
-      if (_logLevel <= LogLevel.ERROR)
+      if (_logLevel <= 3 /* ERROR */)
         console.error(`[${scope}]`, ...args);
     }
   };
 }
-var LogLevel, _logLevel;
-var init_logger = __esm(() => {
-  (function(LogLevel2) {
-    LogLevel2[LogLevel2["DEBUG"] = 0] = "DEBUG";
-    LogLevel2[LogLevel2["INFO"] = 1] = "INFO";
-    LogLevel2[LogLevel2["WARN"] = 2] = "WARN";
-    LogLevel2[LogLevel2["ERROR"] = 3] = "ERROR";
-    LogLevel2[LogLevel2["SILENT"] = 4] = "SILENT";
-  })(LogLevel || (LogLevel = {}));
-  _logLevel = LogLevel.INFO;
-});
+var _logLevel = 1 /* INFO */;
+var init_logger = () => {};
 
-// src/terminal-compat.ts
+// extensions/console/src/terminal-compat.ts
 import { execFileSync } from "child_process";
 function detectTier() {
   if ((process.env.TERM ?? "").toLowerCase() === "dumb")
@@ -170,7 +161,7 @@ var init_terminal_compat = __esm(() => {
   HOURGLASS_SPINNER_INTERVAL_MS = terminalTier === "basic" ? 240 : 360;
 });
 
-// src/remote-wizard.ts
+// extensions/console/src/remote-wizard.ts
 var exports_remote_wizard = {};
 __export(exports_remote_wizard, {
   showSavePrompt: () => showSavePrompt,
@@ -628,7 +619,7 @@ var init_remote_wizard = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/framing.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/framing.ts
 import { Transform } from "node:stream";
 function encodeFrame(data) {
   const payload = Buffer.from(JSON.stringify(data), "utf-8");
@@ -679,7 +670,7 @@ var init_framing = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/protocol.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/protocol.ts
 function isRequest(msg) {
   return "id" in msg && "method" in msg;
 }
@@ -803,7 +794,7 @@ var init_protocol = __esm(() => {
   IPC_TO_BACKEND_EVENT = Object.fromEntries(Object.entries(BACKEND_EVENT_TO_IPC).map(([k, v]) => [v, k]));
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-tool-handle.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/remote-tool-handle.ts
 import { EventEmitter } from "node:events";
 var logger, RemoteToolHandle;
 var init_remote_tool_handle = __esm(() => {
@@ -907,7 +898,7 @@ var init_remote_tool_handle = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-backend-handle.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/remote-backend-handle.ts
 import { EventEmitter as EventEmitter2 } from "node:events";
 var logger2, RemoteBackendHandle;
 var init_remote_backend_handle = __esm(() => {
@@ -1131,7 +1122,7 @@ var init_remote_backend_handle = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-api-proxy.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/remote-api-proxy.ts
 function callApi(client, targetAgentName, method, params) {
   if (!targetAgentName) {
     return client.call(method, params);
@@ -1205,7 +1196,16 @@ var init_remote_api_proxy = __esm(() => {
   logger3 = createExtensionLogger("RemoteApiProxy");
 });
 
-// ../../packages/extension-sdk/dist/ipc/index.js
+// extensions/console/node_modules/irises-extension-sdk/src/ipc/index.ts
+var init_ipc = __esm(() => {
+  init_framing();
+  init_protocol();
+  init_remote_backend_handle();
+  init_remote_tool_handle();
+  init_remote_api_proxy();
+});
+
+// extensions/console/node_modules/irises-extension-sdk/dist/ipc/index.js
 var exports_ipc = {};
 __export(exports_ipc, {
   isResponse: () => isResponse,
@@ -1222,20 +1222,16 @@ __export(exports_ipc, {
   ErrorCodes: () => ErrorCodes,
   BACKEND_EVENT_TO_IPC: () => BACKEND_EVENT_TO_IPC
 });
-var init_ipc = __esm(() => {
-  init_framing();
-  init_protocol();
-  init_remote_backend_handle();
-  init_remote_tool_handle();
-  init_remote_api_proxy();
+var init_ipc2 = __esm(() => {
+  init_ipc();
 });
 
-// src/index.ts
+// extensions/console/src/index.ts
 import React12 from "react";
 import { createCliRenderer, capture as opentuiCapture } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 
-// ../../packages/extension-sdk/dist/platform.js
+// extensions/console/node_modules/irises-extension-sdk/src/platform.ts
 class BackendHandle {
   _backend;
   _listeners = new Map;
@@ -1361,10 +1357,23 @@ class PlatformAdapter {
     return this.constructor.name;
   }
 }
+// extensions/console/node_modules/irises-extension-sdk/src/utils/paths.ts
+function normalizeText(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+function normalizeRelativeFilePath(input, label = "文件路径") {
+  const normalized = input.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!normalized) {
+    throw new Error(`${label}不能为空`);
+  }
+  const parts = normalized.split("/");
+  if (parts.some((part) => !part || part === "." || part === "..")) {
+    throw new Error(`${label}无效: ${input}`);
+  }
+  return parts.join("/");
+}
 
-// ../../packages/extension-sdk/dist/index.js
-init_logger();
-// ../../packages/extension-sdk/dist/utils/dependencies.js
+// extensions/console/node_modules/irises-extension-sdk/src/utils/dependencies.ts
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
 import { createRequire as createRequire2 } from "node:module";
@@ -1501,27 +1510,9 @@ async function ensureExtensionRuntimeDependencies(extensionDir, options = {}) {
     installArgs: args
   };
 }
-// ../../packages/extension-sdk/dist/utils/git.js
+// extensions/console/node_modules/irises-extension-sdk/src/utils/git.ts
 import * as fs2 from "node:fs";
 import * as path2 from "node:path";
-
-// ../../packages/extension-sdk/dist/utils/paths.js
-function normalizeText(value) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-function normalizeRelativeFilePath(input, label = "文件路径") {
-  const normalized = input.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
-  if (!normalized) {
-    throw new Error(`${label}不能为空`);
-  }
-  const parts = normalized.split("/");
-  if (parts.some((part) => !part || part === "." || part === "..")) {
-    throw new Error(`${label}无效: ${input}`);
-  }
-  return parts.join("/");
-}
-
-// ../../packages/extension-sdk/dist/utils/git.js
 var GIT_INSTALL_METADATA_FILE = ".iris-extension-install.json";
 function stripGitPlusProtocol(url) {
   return url.startsWith("git+") ? url.slice("git+".length) : url;
@@ -1583,7 +1574,7 @@ function readGitInstallMetadata(rootDir) {
     return;
   }
 }
-// node_modules/tokenx/dist/index.mjs
+// extensions/console/node_modules/tokenx/dist/index.mjs
 var PATTERNS = {
   whitespace: /^\s+$/,
   cjk: /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF00-\uFFEF\u30A0-\u30FF\u2E80-\u2EFF\u31C0-\u31EF\u3200-\u32FF\u3300-\u33FF\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF]/,
@@ -1645,11 +1636,11 @@ function getCharacterCount(text) {
   return Array.from(text).length;
 }
 
-// src/App.tsx
+// extensions/console/src/App.tsx
 import { useCallback as useCallback11, useEffect as useEffect12, useMemo as useMemo7, useRef as useRef9, useState as useState15 } from "react";
 import { useRenderer } from "@opentui/react";
 
-// src/theme.ts
+// extensions/console/src/theme.ts
 var C = {
   primary: "#6c5ce7",
   primaryLight: "#a29bfe",
@@ -1680,7 +1671,7 @@ var C = {
   command: "#00cec9"
 };
 
-// src/components/ApprovalBar.tsx
+// extensions/console/src/components/ApprovalBar.tsx
 init_terminal_compat();
 import { jsxDEV, Fragment } from "@opentui/react/jsx-dev-runtime";
 function ApprovalBar({ toolName, choice, remainingCount, isCommandTool, approvalPage = "basic" }) {
@@ -1759,7 +1750,7 @@ function ApprovalBar({ toolName, choice, remainingCount, isCommandTool, approval
   }, undefined, false, undefined, this);
 }
 
-// src/components/ConfirmBar.tsx
+// extensions/console/src/components/ConfirmBar.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV2 } from "@opentui/react/jsx-dev-runtime";
 function ConfirmBar({ message, choice }) {
@@ -1812,12 +1803,12 @@ function ConfirmBar({ message, choice }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/AskQuestionFirstPanel.tsx
+// extensions/console/src/components/AskQuestionFirstPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState3 } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 init_terminal_compat();
 
-// src/hooks/use-text-input.ts
+// extensions/console/src/hooks/use-text-input.ts
 import { useState, useCallback } from "react";
 function wordBoundaryLeft(text, pos) {
   if (pos <= 0)
@@ -1916,7 +1907,7 @@ function useTextInput(initialValue = "") {
   return [state, { handleKey, insert, setValue, set }];
 }
 
-// src/text-layout.ts
+// extensions/console/src/text-layout.ts
 var IS_CJK_LOCALE = (() => {
   const lang = (process.env.LANG || process.env.LC_ALL || process.env.LC_CTYPE || "").toLowerCase();
   return /^(zh|ja|ko|zh_|ja_|ko_)/.test(lang) || lang.includes(".gb") || lang.includes(".euc") || lang.includes(".big5") || lang.includes(".shift");
@@ -1949,7 +1940,7 @@ function getTextWidth(text) {
   return splitGraphemes(text).reduce((total, grapheme) => total + getGraphemeWidth(grapheme), 0);
 }
 
-// src/components/InputDisplay.tsx
+// extensions/console/src/components/InputDisplay.tsx
 import { jsxDEV as jsxDEV3, Fragment as Fragment2 } from "@opentui/react/jsx-dev-runtime";
 function InputDisplay({ value, cursor, availableWidth, isActive, cursorVisible, placeholder, transform }) {
   const display = transform ? transform(value) : value;
@@ -2045,7 +2036,7 @@ function InputDisplay({ value, cursor, availableWidth, isActive, cursorVisible, 
   }, undefined, true, undefined, this);
 }
 
-// src/hooks/use-cursor-blink.ts
+// extensions/console/src/hooks/use-cursor-blink.ts
 import { useState as useState2, useEffect } from "react";
 function useCursorBlink(intervalMs = 530) {
   const [visible, setVisible] = useState2(true);
@@ -2058,7 +2049,7 @@ function useCursorBlink(intervalMs = 530) {
   return visible;
 }
 
-// src/components/MarkdownText.tsx
+// extensions/console/src/components/MarkdownText.tsx
 import { useMemo } from "react";
 import { SyntaxStyle, parseColor } from "@opentui/core";
 import { jsxDEV as jsxDEV4 } from "@opentui/react/jsx-dev-runtime";
@@ -2120,7 +2111,7 @@ function MarkdownText({ text, showCursor }) {
   }, undefined, false, undefined, this);
 }
 
-// src/components/AskQuestionFirstPanel.tsx
+// extensions/console/src/components/AskQuestionFirstPanel.tsx
 import { jsxDEV as jsxDEV5 } from "@opentui/react/jsx-dev-runtime";
 function getQuestions(invocation) {
   const progress = invocation.progress;
@@ -2727,7 +2718,7 @@ function AskQuestionFirstPanel({ invocation, onToolMessage, planModeActive }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/PlanApprovalBar.tsx
+// extensions/console/src/components/PlanApprovalBar.tsx
 import { useTerminalDimensions as useTerminalDimensions2 } from "@opentui/react";
 import { jsxDEV as jsxDEV6 } from "@opentui/react/jsx-dev-runtime";
 function getPlanProgress(invocation) {
@@ -2823,7 +2814,7 @@ function PlanApprovalBar({ invocation, remainingCount, choice }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/HintBar.tsx
+// extensions/console/src/components/HintBar.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV7, Fragment as Fragment3 } from "@opentui/react/jsx-dev-runtime";
 function truncatePath(fullPath, maxWidth) {
@@ -2937,11 +2928,11 @@ function HintBar({ isGenerating, queueSize, copyMode, exitConfirmArmed, remoteHo
   }, undefined, true, undefined, this);
 }
 
-// src/components/InputBar.tsx
+// extensions/console/src/components/InputBar.tsx
 import { useEffect as useEffect4, useMemo as useMemo3, useRef as useRef2, useState as useState4 } from "react";
 import { useKeyboard as useKeyboard2, useTerminalDimensions as useTerminalDimensions3 } from "@opentui/react";
 
-// src/input-commands.ts
+// extensions/console/src/input-commands.ts
 var COMMANDS = [
   { name: "/new", description: "新建对话" },
   { name: "/load", description: "加载历史对话" },
@@ -2974,7 +2965,7 @@ function isExactCommandValue(value, cmd) {
   return value === cmd.name || value === getCommandInput(cmd);
 }
 
-// src/hooks/use-paste.ts
+// extensions/console/src/hooks/use-paste.ts
 import { useEffect as useEffect3, useCallback as useCallback2, useLayoutEffect, useRef } from "react";
 import { decodePasteBytes } from "@opentui/core";
 import { useAppContext } from "@opentui/react";
@@ -2995,7 +2986,7 @@ function usePaste(handler) {
   }, [keyHandler, stableHandler]);
 }
 
-// src/components/InputBar.tsx
+// extensions/console/src/components/InputBar.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV8 } from "@opentui/react/jsx-dev-runtime";
 var FILE_TYPE_ICONS = {
@@ -3390,7 +3381,7 @@ function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmi
   }, undefined, true, undefined, this);
 }
 
-// src/components/StatusBar.tsx
+// extensions/console/src/components/StatusBar.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV9, Fragment as Fragment4 } from "@opentui/react/jsx-dev-runtime";
 function StatusBar({ agentName, modeName, modelName, contextTokens, contextWindow, queueSize, planModeActive, remoteHost, backgroundTaskCount, delegateTaskCount, backgroundTaskTokens, backgroundTaskSpinnerFrame }) {
@@ -3574,7 +3565,7 @@ function StatusBar({ agentName, modeName, modelName, contextTokens, contextWindo
   }, undefined, true, undefined, this);
 }
 
-// src/components/ThinkingIndicator.tsx
+// extensions/console/src/components/ThinkingIndicator.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV10 } from "@opentui/react/jsx-dev-runtime";
 var BLOCK_COUNT = 4;
@@ -3634,7 +3625,7 @@ function ThinkingIndicator({ level, showHint, isRemote }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/BottomPanel.tsx
+// extensions/console/src/components/BottomPanel.tsx
 import { jsxDEV as jsxDEV11 } from "@opentui/react/jsx-dev-runtime";
 function BottomPanel({
   hasMessages,
@@ -3749,7 +3740,7 @@ function BottomPanel({
   }, undefined, true, undefined, this);
 }
 
-// src/components/AgentListView.tsx
+// extensions/console/src/components/AgentListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV12 } from "@opentui/react/jsx-dev-runtime";
 function AgentListView({ agents, selectedIndex, currentAgentName }) {
@@ -3824,14 +3815,14 @@ function AgentListView({ agents, selectedIndex, currentAgentName }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/ChatMessageList.tsx
+// extensions/console/src/components/ChatMessageList.tsx
 import { useMemo as useMemo4 } from "react";
 import { useTerminalDimensions as useTerminalDimensions5 } from "@opentui/react";
 
-// src/components/GeneratingTimer.tsx
+// extensions/console/src/components/GeneratingTimer.tsx
 import { useState as useState6, useEffect as useEffect6, useRef as useRef4 } from "react";
 
-// src/components/Spinner.tsx
+// extensions/console/src/components/Spinner.tsx
 import { useState as useState5, useEffect as useEffect5, useRef as useRef3 } from "react";
 init_terminal_compat();
 import { jsxDEV as jsxDEV13 } from "@opentui/react/jsx-dev-runtime";
@@ -3856,7 +3847,7 @@ function Spinner({ color = C.accent, frames = SPINNER_FRAMES, intervalMs = SPINN
   }, undefined, false, undefined, this);
 }
 
-// src/components/GeneratingTimer.tsx
+// extensions/console/src/components/GeneratingTimer.tsx
 import { jsxDEV as jsxDEV14 } from "@opentui/react/jsx-dev-runtime";
 function GeneratingTimer({ isGenerating, retryInfo, label, paused }) {
   const [time, setTime] = useState6(0);
@@ -3924,11 +3915,11 @@ function GeneratingTimer({ isGenerating, retryInfo, label, paused }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/MessageItem.tsx
+// extensions/console/src/components/MessageItem.tsx
 import React6, { useEffect as useEffect7, useRef as useRef5, useState as useState7 } from "react";
 import { useTerminalDimensions as useTerminalDimensions4 } from "@opentui/react";
 
-// src/tool-renderers/default.tsx
+// extensions/console/src/tool-renderers/default.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV15 } from "@opentui/react/jsx-dev-runtime";
 function DefaultRenderer({ result }) {
@@ -3947,7 +3938,7 @@ function DefaultRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/shell.tsx
+// extensions/console/src/tool-renderers/shell.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV16 } from "@opentui/react/jsx-dev-runtime";
 function lineCount(text) {
@@ -4014,7 +4005,7 @@ function ShellRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/read-file.tsx
+// extensions/console/src/tool-renderers/read-file.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV17 } from "@opentui/react/jsx-dev-runtime";
 function basename(p) {
@@ -4071,7 +4062,7 @@ function ReadFileRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/apply-diff.tsx
+// extensions/console/src/tool-renderers/apply-diff.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV18 } from "@opentui/react/jsx-dev-runtime";
 function countPatchLines(patch) {
@@ -4128,7 +4119,7 @@ function ApplyDiffRenderer({ args, result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/search-in-files.tsx
+// extensions/console/src/tool-renderers/search-in-files.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV19 } from "@opentui/react/jsx-dev-runtime";
 function truncStr(s, max) {
@@ -4183,7 +4174,7 @@ function SearchInFilesRenderer({ args, result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/find-files.tsx
+// extensions/console/src/tool-renderers/find-files.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV20 } from "@opentui/react/jsx-dev-runtime";
 function FindFilesRenderer({ result }) {
@@ -4204,7 +4195,7 @@ function FindFilesRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/list-files.tsx
+// extensions/console/src/tool-renderers/list-files.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV21 } from "@opentui/react/jsx-dev-runtime";
 function ListFilesRenderer({ result }) {
@@ -4230,7 +4221,7 @@ function ListFilesRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/write-file.tsx
+// extensions/console/src/tool-renderers/write-file.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV22 } from "@opentui/react/jsx-dev-runtime";
 function countLines(content) {
@@ -4288,7 +4279,7 @@ function WriteFileRenderer({ args, result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/delete-code.tsx
+// extensions/console/src/tool-renderers/delete-code.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV23 } from "@opentui/react/jsx-dev-runtime";
 function DeleteCodeRenderer({ result }) {
@@ -4341,7 +4332,7 @@ function DeleteCodeRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/insert-code.tsx
+// extensions/console/src/tool-renderers/insert-code.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV24 } from "@opentui/react/jsx-dev-runtime";
 function InsertCodeRenderer({ result }) {
@@ -4395,7 +4386,7 @@ function InsertCodeRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/ask-question-first.tsx
+// extensions/console/src/tool-renderers/ask-question-first.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV25 } from "@opentui/react/jsx-dev-runtime";
 function truncate2(text, max = 90) {
@@ -4471,7 +4462,7 @@ function AskQuestionFirstRenderer({ result }) {
   }, undefined, false, undefined, this);
 }
 
-// src/tool-renderers/index.ts
+// extensions/console/src/tool-renderers/index.ts
 var renderers = {
   shell: ShellRenderer,
   bash: ShellRenderer,
@@ -4493,7 +4484,7 @@ function getToolDetailRenderer(toolName) {
   return detailRenderers[toolName] ?? null;
 }
 
-// src/tool-errors.ts
+// extensions/console/src/tool-errors.ts
 function formatToolError(error) {
   if (!error)
     return error;
@@ -4504,7 +4495,7 @@ function formatToolError(error) {
   return error;
 }
 
-// src/tool-display-service.ts
+// extensions/console/src/tool-display-service.ts
 var CONSOLE_TOOL_DISPLAY_SERVICE_ID = "console:tool-display";
 var providers = new Map;
 var consoleToolDisplayService = {
@@ -4532,7 +4523,7 @@ function getToolDisplayProvider(toolName) {
   return providers.get(toolName);
 }
 
-// src/components/ToolCall.tsx
+// extensions/console/src/components/ToolCall.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV26 } from "@opentui/react/jsx-dev-runtime";
 var TERMINAL_STATUSES = new Set(["success", "warning", "error"]);
@@ -4758,7 +4749,7 @@ function ToolCall({ invocation }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/MessageItem.tsx
+// extensions/console/src/components/MessageItem.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV27 } from "@opentui/react/jsx-dev-runtime";
 function truncateMiddle(text, maxChars) {
@@ -5198,7 +5189,7 @@ var MessageItem = React6.memo(function MessageItem2({ msg, liveTools, liveParts,
   }, undefined, true, undefined, this);
 });
 
-// src/components/ChatMessageList.tsx
+// extensions/console/src/components/ChatMessageList.tsx
 import { jsxDEV as jsxDEV28 } from "@opentui/react/jsx-dev-runtime";
 function ChatMessageList({
   messages,
@@ -5286,12 +5277,12 @@ function ChatMessageList({
   }, undefined, true, undefined, this);
 }
 
-// src/components/DiffApprovalView.tsx
+// extensions/console/src/components/DiffApprovalView.tsx
 import { useMemo as useMemo5 } from "react";
 import * as fs4 from "fs";
 import * as path4 from "path";
 
-// ../../packages/extension-sdk/dist/tool-utils.js
+// extensions/console/node_modules/irises-extension-sdk/src/tool-utils.ts
 import * as fs3 from "node:fs";
 import * as path3 from "node:path";
 function normalizeLineEndings(text) {
@@ -5612,7 +5603,7 @@ function normalizeDeleteCodeArgs(args) {
   });
 }
 
-// src/components/DiffApprovalView.tsx
+// extensions/console/src/components/DiffApprovalView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV29 } from "@opentui/react/jsx-dev-runtime";
 var DEFAULT_SEARCH_PATTERN = "**/*";
@@ -6139,7 +6130,7 @@ function DiffApprovalView({ invocation, pendingCount, choice, view, showLineNumb
   }, undefined, true, undefined, this);
 }
 
-// src/components/InitWarnings.tsx
+// extensions/console/src/components/InitWarnings.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV30 } from "@opentui/react/jsx-dev-runtime";
 var MAX_VISIBLE_LINES = 3;
@@ -6174,7 +6165,7 @@ function InitWarnings({ warnings, color, icon }) {
   }, undefined, false, undefined, this);
 }
 
-// src/components/FileBrowserView.tsx
+// extensions/console/src/components/FileBrowserView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV31 } from "@opentui/react/jsx-dev-runtime";
 var FILE_TYPE_ICONS3 = {
@@ -6284,7 +6275,7 @@ function FileBrowserView({ currentPath, entries, selectedIndex, showHidden }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/LogoScreen.tsx
+// extensions/console/src/components/LogoScreen.tsx
 import { jsxDEV as jsxDEV32 } from "@opentui/react/jsx-dev-runtime";
 function LogoScreen() {
   return /* @__PURE__ */ jsxDEV32("box", {
@@ -6329,7 +6320,7 @@ function LogoScreen() {
   }, undefined, false, undefined, this);
 }
 
-// src/components/ToolDetailView.tsx
+// extensions/console/src/components/ToolDetailView.tsx
 import { useState as useState8, useCallback as useCallback3 } from "react";
 import { useKeyboard as useKeyboard3 } from "@opentui/react";
 init_terminal_compat();
@@ -6844,7 +6835,7 @@ function FooterBar({ isFinal, hasAbort, hasChildren }) {
   }, undefined, false, undefined, this);
 }
 
-// src/components/ModelListView.tsx
+// extensions/console/src/components/ModelListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV34, Fragment as Fragment5 } from "@opentui/react/jsx-dev-runtime";
 function formatContextWindow(tokens) {
@@ -7087,7 +7078,7 @@ function ModelListView({
   }, undefined, true, undefined, this);
 }
 
-// src/components/QueueListView.tsx
+// extensions/console/src/components/QueueListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV35 } from "@opentui/react/jsx-dev-runtime";
 function formatQueueTime(timestamp) {
@@ -7235,7 +7226,7 @@ function QueueListView({ queue, selectedIndex, editingId, editingValue, editingC
   }, undefined, true, undefined, this);
 }
 
-// src/components/ToolListView.tsx
+// extensions/console/src/components/ToolListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV36 } from "@opentui/react/jsx-dev-runtime";
 var STATUS_ICON2 = {
@@ -7404,7 +7395,7 @@ function ToolListView({ tools, selectedIndex }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/SessionListView.tsx
+// extensions/console/src/components/SessionListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV37 } from "@opentui/react/jsx-dev-runtime";
 function SessionListView({ sessions, selectedIndex }) {
@@ -7473,7 +7464,7 @@ function SessionListView({ sessions, selectedIndex }) {
   }, undefined, true, undefined, this);
 }
 
-// src/components/MemoryListView.tsx
+// extensions/console/src/components/MemoryListView.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV38 } from "@opentui/react/jsx-dev-runtime";
 var TYPE_LABELS = {
@@ -7609,7 +7600,7 @@ function formatAge(unixSec) {
   return new Date(unixSec * 1000).toLocaleDateString("zh-CN");
 }
 
-// src/components/ExtensionListView.tsx
+// extensions/console/src/components/ExtensionListView.tsx
 import { useTerminalDimensions as useTerminalDimensions6 } from "@opentui/react";
 init_terminal_compat();
 import { jsxDEV as jsxDEV39, Fragment as Fragment6 } from "@opentui/react/jsx-dev-runtime";
@@ -7931,12 +7922,12 @@ function ExtensionListView({
   }, undefined, true, undefined, this);
 }
 
-// src/components/SettingsView.tsx
+// extensions/console/src/components/SettingsView.tsx
 import { useCallback as useCallback4, useEffect as useEffect8, useMemo as useMemo6, useState as useState9 } from "react";
 import { useKeyboard as useKeyboard4, useTerminalDimensions as useTerminalDimensions7 } from "@opentui/react";
 init_terminal_compat();
 
-// src/diff-approval.ts
+// extensions/console/src/diff-approval.ts
 var CONSOLE_DIFF_APPROVAL_VIEW_TOOLS = new Set([
   "apply_diff",
   "write_file",
@@ -7964,7 +7955,7 @@ function getConsoleDiffApprovalViewDescription(toolName) {
   }
 }
 
-// src/settings.ts
+// extensions/console/src/settings.ts
 var CONSOLE_LLM_PROVIDER_OPTIONS = [
   "gemini",
   "openai-compatible",
@@ -8316,7 +8307,7 @@ class ConsoleSettingsController {
   }
 }
 
-// src/components/SettingsView.tsx
+// extensions/console/src/components/SettingsView.tsx
 import { jsxDEV as jsxDEV40 } from "@opentui/react/jsx-dev-runtime";
 function getToolPolicyMode(configured, autoApprove) {
   if (!configured)
@@ -9428,10 +9419,10 @@ ${JSON.stringify(result.data, null, 2)}` : "";
   }, undefined, true, undefined, this);
 }
 
-// src/hooks/use-app-handle.ts
+// extensions/console/src/hooks/use-app-handle.ts
 import { useCallback as useCallback5, useEffect as useEffect9, useRef as useRef6, useState as useState10 } from "react";
 
-// src/message-utils.ts
+// extensions/console/src/message-utils.ts
 var msgIdCounter = 0;
 function nextMsgId() {
   return `msg-${++msgIdCounter}`;
@@ -9515,7 +9506,7 @@ function appendCommandMessage(setMessages, text, options) {
   ]);
 }
 
-// src/undo-redo.ts
+// extensions/console/src/undo-redo.ts
 var MAX_STACK_SIZE = 200;
 function createUndoRedoStack() {
   return { redoStack: [] };
@@ -9542,7 +9533,7 @@ function clearRedo(stack) {
   stack.redoStack.length = 0;
 }
 
-// src/hooks/use-app-handle.ts
+// extensions/console/src/hooks/use-app-handle.ts
 function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendingFilesRef, openFileBrowserRef, fileBrowserCallbackRef }) {
   const [messages, setMessages] = useState10([]);
   const [streamingParts, setStreamingParts] = useState10([]);
@@ -9918,7 +9909,7 @@ function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendingFilesR
   };
 }
 
-// src/hooks/use-app-keyboard.ts
+// extensions/console/src/hooks/use-app-keyboard.ts
 import { useKeyboard as useKeyboard5 } from "@opentui/react";
 init_terminal_compat();
 function closeConfirm(setPendingConfirm, setConfirmChoice) {
@@ -10879,7 +10870,7 @@ function useAppKeyboard({
   });
 }
 
-// src/hooks/use-approval.ts
+// extensions/console/src/hooks/use-approval.ts
 import { useCallback as useCallback6, useEffect as useEffect10, useState as useState11 } from "react";
 function useApproval(pendingApprovals, pendingApplies) {
   const [approvalChoice, setApprovalChoice] = useState11("approve");
@@ -10935,10 +10926,10 @@ function useApproval(pendingApprovals, pendingApplies) {
   };
 }
 
-// src/hooks/use-command-dispatch.ts
+// extensions/console/src/hooks/use-command-dispatch.ts
 import { useCallback as useCallback7 } from "react";
 
-// src/slash-command-service.ts
+// extensions/console/src/slash-command-service.ts
 var CONSOLE_SLASH_COMMAND_SERVICE_ID = "console:slash-command";
 var commands = new Map;
 var listeners = new Set;
@@ -11014,7 +11005,7 @@ function dispatchSlashCommand(raw) {
   return consoleSlashCommandService.dispatch(raw);
 }
 
-// src/hooks/use-command-dispatch.ts
+// extensions/console/src/hooks/use-command-dispatch.ts
 function resetRedo(undoRedoRef, onClearRedoStack) {
   clearRedo(undoRedoRef.current);
   onClearRedoStack();
@@ -11399,7 +11390,7 @@ function useCommandDispatch({
   ]);
 }
 
-// src/hooks/use-exit-confirm.ts
+// extensions/console/src/hooks/use-exit-confirm.ts
 import { useCallback as useCallback8, useEffect as useEffect11, useRef as useRef7, useState as useState12 } from "react";
 function useExitConfirm({ timeoutMs = 1500 } = {}) {
   const [exitConfirmArmed, setExitConfirmArmed] = useState12(false);
@@ -11433,7 +11424,7 @@ function useExitConfirm({ timeoutMs = 1500 } = {}) {
   };
 }
 
-// src/hooks/use-message-queue.ts
+// extensions/console/src/hooks/use-message-queue.ts
 import { useCallback as useCallback9, useRef as useRef8, useState as useState13 } from "react";
 var queueIdCounter = 0;
 function useMessageQueue() {
@@ -11531,7 +11522,7 @@ function useMessageQueue() {
   };
 }
 
-// src/hooks/use-model-state.ts
+// extensions/console/src/hooks/use-model-state.ts
 import { useCallback as useCallback10, useState as useState14 } from "react";
 function useModelState({ modelId, modelName, contextWindow }) {
   const [currentModelId, setCurrentModelId] = useState14(modelId);
@@ -11553,7 +11544,7 @@ function useModelState({ modelId, modelName, contextWindow }) {
   };
 }
 
-// src/App.tsx
+// extensions/console/src/App.tsx
 import { jsxDEV as jsxDEV41 } from "@opentui/react/jsx-dev-runtime";
 function App({
   onReady,
@@ -12106,7 +12097,7 @@ function App({
   }, undefined, true, undefined, this);
 }
 
-// src/opentui-runtime.ts
+// extensions/console/src/opentui-runtime.ts
 import * as fs5 from "node:fs";
 import * as path5 from "node:path";
 import { addDefaultParsers, clearEnvCache } from "@opentui/core";
@@ -12252,7 +12243,7 @@ function configureBundledOpenTuiTreeSitter(isCompiledBinary) {
   configured = true;
 }
 
-// src/resize-watcher.ts
+// extensions/console/src/resize-watcher.ts
 function getTerminalSize(renderer) {
   const width = process.stdout.columns || renderer.width || 80;
   const height = process.stdout.rows || renderer.height || 24;
@@ -12342,10 +12333,10 @@ function attachCompiledResizeWatcher(renderer, isCompiledBinary) {
   return dispose;
 }
 
-// src/index.ts
+// extensions/console/src/index.ts
 init_terminal_compat();
 
-// src/console-config.ts
+// extensions/console/src/console-config.ts
 var DEFAULT_CONSOLE_CONFIG = {
   expandSubAgentTools: false
 };
@@ -12356,7 +12347,7 @@ function resolveConsoleConfig(raw) {
   };
 }
 
-// src/index.ts
+// extensions/console/src/index.ts
 function generateCommandPattern(command) {
   const tokens = command.trim().split(/\s+/);
   if (tokens.length === 0 || !tokens[0])
@@ -12726,7 +12717,7 @@ class ConsolePlatform extends PlatformAdapter {
     return next;
   }
   async start() {
-    this.api?.setLogLevel?.(LogLevel.SILENT);
+    this.api?.setLogLevel?.(4 /* SILENT */);
     configureBundledOpenTuiTreeSitter(this.isCompiledBinary);
     this.onBackend("assistant:content", (sid, content) => {
       if (sid === this.sessionId) {
@@ -13147,7 +13138,7 @@ ${summaryText}`;
       if (!WsIPCClient) {
         throw new Error("remote-connect 扩展服务不可用，请确认 remote-connect 扩展已安装并启用");
       }
-      const { RemoteBackendHandle: RemoteBackendHandle2, createRemoteApiProxy: createRemoteApiProxy2 } = await Promise.resolve().then(() => (init_ipc(), exports_ipc));
+      const { RemoteBackendHandle: RemoteBackendHandle2, createRemoteApiProxy: createRemoteApiProxy2 } = await Promise.resolve().then(() => (init_ipc2(), exports_ipc));
       const wsClient = new WsIPCClient;
       const handshake = await wsClient.connect(url, token);
       let remoteBackend;
@@ -14249,8 +14240,8 @@ ${summaryText}`;
         try {
           const fullPath = path6.join(dirPath, name);
           const stat = fs6.statSync(fullPath);
-          const isDirectory2 = stat.isDirectory();
-          if (isDirectory2) {
+          const isDirectory = stat.isDirectory();
+          if (isDirectory) {
             entries.push({ name, isDirectory: true });
           } else {
             const ext = path6.extname(name).toLowerCase();

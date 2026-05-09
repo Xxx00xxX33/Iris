@@ -4,22 +4,27 @@
 
 import { SummaryConfig } from './types';
 
-const DEFAULT_SYSTEM_PROMPT = `You are a conversation compressor. Your task is to read the conversation history and produce a dense context summary.
+export const DEFAULT_SYSTEM_PROMPT = 'Please summarize the above conversation, keeping key information and context points while removing redundant content.';
 
-The summary must:
-1. State what the user is working on (project, goal)
-2. List key file paths and code changes made
-3. Note important decisions and their reasons
-4. Describe current state and any pending tasks
-5. Preserve technical details (function names, config keys, error messages, etc.)
+export const DEFAULT_USER_PROMPT = `Please summarize the above conversation history and output the following sections, so that the AI can continue completing the unfinished tasks.
 
-Rules:
-- Write in the same language as the conversation
-- Be information-dense — every sentence should contain useful context
-- Do NOT include pleasantries, greetings, or meta-commentary
-- Output ONLY the summary text`;
+## User Requirements
+What the user wants to accomplish (overall goal).
 
-const DEFAULT_USER_PROMPT = 'Please summarize the conversation above into a concise context summary.';
+## Completed Work
+List what has been done in chronological order, including which files were changed and what decisions were made.
+File paths, variable names, and configuration values must be preserved exactly, do not generalize.
+
+## Current Progress
+What step has been reached, what is currently being done.
+
+## TODO Items
+What still needs to be done, listed by priority.
+
+## Important Conventions
+Constraints, preferences, and technical requirements raised by the user (e.g., "do not use third-party libraries", "use TypeScript", etc.).
+
+Output content directly without any prefix.`;
 
 export function parseSummaryConfig(raw: any = {}): SummaryConfig {
   return {

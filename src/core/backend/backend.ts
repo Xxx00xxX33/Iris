@@ -904,7 +904,7 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
       toSummarize,
       this.summaryModelName,
       this.summaryConfig,
-      signal,
+      { stream: this.stream, signal },
     );
 
     const now = Date.now();

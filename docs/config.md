@@ -121,8 +121,8 @@ system:
 
 # summary:
 #   systemPrompt: |
-#     You are a conversation compressor...
-#   userPrompt: "Please summarize the conversation above."
+#     Please summarize the above conversation, keeping key information and context points while removing redundant content.
+#   userPrompt: "Please summarize the above conversation history and output the configured continuation sections."
 
 # plugins:
 #   - name: my-plugin

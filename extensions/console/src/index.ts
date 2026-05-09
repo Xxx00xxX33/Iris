@@ -509,6 +509,15 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     }
   }
 
+  private async syncMilestones(): Promise<void> {
+    try {
+      const snapshot = await (this.backend as any).loadMilestones?.(this.sessionId) ?? this.backend.getMilestones?.(this.sessionId) as any;
+      this.appHandle?.setMilestones(snapshot ?? null);
+    } catch {
+      this.appHandle?.setMilestones(null);
+    }
+  }
+
   private getLocalExtensionService<T>(id: string): T | undefined {
     const api = this.originalApi ?? this.api;
     return (api?.services as any)?.get?.(id) as T | undefined;
@@ -747,6 +756,12 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
       this.appHandle?.addMessage('assistant', text);
     });
 
+    this.onBackend('milestones:update', (sid: string, snapshot: any) => {
+      if (sid === this.sessionId) {
+        this.appHandle?.setMilestones(snapshot);
+      }
+    });
+
     this.onBackend('auto-compact', (sid: string, summaryText: string) => {
       if (sid === this.sessionId) {
         const fullText = `[Context Summary]\n\n${summaryText}`;
@@ -807,6 +822,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         onReady: (handle: AppHandle) => {
           this.appHandle = handle;
           this.syncPlanModeStatus();
+          void this.syncMilestones();
           resolve();
         },
         onSubmit: (text: string) => this.handleInput(text),
@@ -1376,6 +1392,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     this.currentToolIds.clear();
     this._activeHandles.clear();
     this.appHandle?.setPlanModeActive(false);
+    this.appHandle?.setMilestones(null);
   }
 
   /** 打开工具详情 */
@@ -1575,6 +1592,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     this.currentToolIds.clear();
     this._activeHandles.clear();
     this.syncPlanModeStatus();
+    await this.syncMilestones();
 
     const history = await this.backend.getHistory?.(id) ?? [];
 

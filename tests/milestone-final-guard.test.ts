@@ -94,56 +94,25 @@ function createBackend(storage: InMemoryStorage, milestoneManager: SessionMilest
   return { backend, tools };
 }
 
-describe('Milestone final guard', () => {
-  it('最终回复前有 open milestone 时追加强检查并给模型一次修正机会', async () => {
+describe('Milestone prompt cache behavior', () => {
+  it('最终回复前有 open milestone 时不注入动态最终检查提示', async () => {
     const storage = new InMemoryStorage();
     const milestoneManager = new SessionMilestoneManager();
     const requests: LLMRequest[] = [];
     const router = {
       chat: vi.fn(async (request: LLMRequest) => {
-        const callIndex = requests.length;
         requests.push(request);
         const guard = systemText(request);
-
-        if (callIndex === 0) {
-          expect(guard).toContain('【Iris 进度守卫】');
-          expect(guard).not.toContain('【Iris 最终进度检查】');
-          return {
-            content: {
-              role: 'model' as const,
-              parts: [{ text: '我已经全部完成了。' }],
-              createdAt: Date.now(),
-            },
-            usageMetadata: { totalTokenCount: 101 },
-          };
-        }
-
-        if (callIndex === 1) {
-        expect(guard).toContain('【Iris 最终进度检查】');
-        expect(guard).toContain('#m1 [in_progress]');
+        expect(guard).not.toMatch(/Iris\s*进度\s*守卫/);
+        expect(guard).not.toMatch(/Iris\s*最终\s*进度\s*检查/);
+        expect(guard).not.toContain('#m1 [in_progress]');
         return {
           content: {
             role: 'model' as const,
-            parts: [{
-              functionCall: {
-                name: 'update_milestones',
-                callId: 'complete-m1',
-                args: { items: [{ id: 'm1', status: 'completed', expectedVersion: 1 }] },
-              },
-            }],
+            parts: [{ text: '我已经全部完成了。' }],
             createdAt: Date.now(),
           },
-          usageMetadata: { totalTokenCount: 102 },
-        };
-        }
-
-        return {
-          content: {
-            role: 'model' as const,
-            parts: [{ text: '已更新进度，全部完成。' }],
-            createdAt: Date.now(),
-          },
-          usageMetadata: { totalTokenCount: 103 },
+          usageMetadata: { totalTokenCount: 101 },
         };
       }),
       getCurrentModelName: vi.fn(() => 'final-guard-model'),
@@ -157,42 +126,31 @@ describe('Milestone final guard', () => {
 
     await backend.chat('s1', '收尾');
 
-    expect(router.chat).toHaveBeenCalledTimes(3);
+    expect(router.chat).toHaveBeenCalledTimes(1);
     const history = await storage.getHistory('s1');
     const visibleModelTexts = history
       .filter(item => item.role === 'model')
       .flatMap(item => item.parts)
       .filter((part): part is { text: string } => 'text' in part && typeof part.text === 'string')
       .map(part => part.text);
-    expect(visibleModelTexts).not.toContain('我已经全部完成了。');
-    expect(visibleModelTexts.at(-1)).toBe('已更新进度，全部完成。');
-    expect(milestoneManager.getSnapshot('s1').stats.open).toBe(0);
+    expect(visibleModelTexts.at(-1)).toBe('我已经全部完成了。');
+    expect(milestoneManager.getSnapshot('s1').stats.open).toBe(1);
   });
 
-  it('如果模型在强检查后选择说明剩余项而不更新状态，只额外提醒一次避免死循环', async () => {
+  it('pending milestone 也不会触发额外最终检查轮次', async () => {
     const storage = new InMemoryStorage();
     const milestoneManager = new SessionMilestoneManager();
     const requests: LLMRequest[] = [];
     const router = {
       chat: vi.fn(async (request: LLMRequest) => {
-        const callIndex = requests.length;
         requests.push(request);
         const guard = systemText(request);
-        if (callIndex === 0) {
-          return {
-            content: {
-              role: 'model' as const,
-              parts: [{ text: '全部完成。' }],
-              createdAt: Date.now(),
-            },
-            usageMetadata: { totalTokenCount: 201 },
-          };
-        }
-        expect(guard).toContain('【Iris 最终进度检查】');
+        expect(guard).not.toMatch(/Iris\s*最终\s*进度\s*检查/);
+        expect(guard).not.toContain('#m1 [pending]');
         return {
           content: {
             role: 'model' as const,
-            parts: [{ text: '还有 #m1 未完成，我会在后续继续处理。' }],
+            parts: [{ text: '全部完成。' }],
             createdAt: Date.now(),
           },
           usageMetadata: { totalTokenCount: 202 },
@@ -209,13 +167,13 @@ describe('Milestone final guard', () => {
 
     await backend.chat('s1', '收尾');
 
-    expect(router.chat).toHaveBeenCalledTimes(2);
+    expect(router.chat).toHaveBeenCalledTimes(1);
     expect(milestoneManager.getSnapshot('s1').stats.open).toBe(1);
     const history = await storage.getHistory('s1');
     const finalText = history
       .filter(item => item.role === 'model')
       .flatMap(item => item.parts)
       .findLast((part): part is { text: string } => 'text' in part && typeof part.text === 'string')?.text;
-    expect(finalText).toContain('未完成');
+    expect(finalText).toBe('全部完成。');
   });
 });

@@ -110,7 +110,7 @@ describe('Backend milestone persistence', () => {
     expect(meta?.milestones?.items[0].status).toBe('in_progress');
   });
 
-  it('会在已有 milestone 的 turn 中注入生命周期守卫提示', async () => {
+  it('已有 milestone 的普通 turn 不注入动态生命周期守卫提示', async () => {
     const storage = new InMemoryStorage();
     const milestoneManager = new SessionMilestoneManager();
     const requests: LLMRequest[] = [];
@@ -153,9 +153,9 @@ describe('Backend milestone persistence', () => {
     await backend.chat('s1', '继续');
 
     const systemText = requests[0].systemInstruction?.parts.map((part: any) => part.text ?? '').join('\n') ?? '';
-    expect(systemText).toContain('【Iris 进度守卫】');
-    expect(systemText).toContain('当前 owner 没有 in_progress');
-    expect(systemText).toContain('#m1 [pending]');
+    expect(systemText).toContain('test system');
+    expect(systemText).not.toMatch(/Iris\s*进度\s*守卫/);
+    expect(systemText).not.toContain('#m1 [pending]');
   });
 
 

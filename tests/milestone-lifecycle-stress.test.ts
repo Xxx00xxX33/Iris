@@ -105,7 +105,7 @@ describe('Milestone lifecycle stress', () => {
     expect(finalSnapshot.items.find(item => item.id === 'worker-active')?.status).toBe('in_progress');
   });
 
-  it('Backend 长任务多轮 update_milestones 后持续刷新生命周期守卫并完成全部步骤', async () => {
+  it('Backend 长任务多轮 update_milestones 不注入生命周期守卫也能完成全部步骤', async () => {
     const storage = new InMemoryStorage();
     const milestoneManager = new SessionMilestoneManager();
     const tools = new ToolRegistry();
@@ -119,11 +119,9 @@ describe('Milestone lifecycle stress', () => {
         const callIndex = requests.length;
         requests.push(request);
         const guard = systemText(request);
-        expect(guard).toContain('【Iris 进度守卫】');
+        expect(guard).not.toMatch(/Iris\s*进度\s*守卫/);
 
         if (callIndex === 0) {
-          expect(guard).toContain('当前 owner 没有 in_progress');
-          expect(guard).toContain('#m1 [pending]');
           return {
             content: {
               role: 'model' as const,
@@ -143,7 +141,6 @@ describe('Milestone lifecycle stress', () => {
         if (callIndex < LONG_TASK_STEPS) {
           const currentStep = callIndex;
           const nextStep = callIndex + 1;
-          expect(guard).toContain(`#m${currentStep} [in_progress]`);
           return {
             content: {
               role: 'model' as const,
@@ -166,7 +163,6 @@ describe('Milestone lifecycle stress', () => {
         }
 
         if (callIndex === LONG_TASK_STEPS) {
-          expect(guard).toContain(`#m${LONG_TASK_STEPS} [in_progress]`);
           return {
             content: {
               role: 'model' as const,
@@ -183,7 +179,6 @@ describe('Milestone lifecycle stress', () => {
           };
         }
 
-        expect(guard).toContain('当前 owner 没有 in_progress，也没有 pending');
         return {
           content: {
             role: 'model' as const,

@@ -73,23 +73,6 @@ const MILESTONE_TOOL_SYNC_IGNORED = new Set([
 
 const CROSS_AGENT_SESSION_RE = /^cross-agent:[^:]+:(.+)$/;
 
-const MILESTONE_SUCCESS_HINT_MUTATING_TOOLS = new Set([
-  'apply_diff', 'write_file', 'insert_code', 'delete_code',
- 'delete_file', 'create_directory',
-]);
-
-const VALIDATION_COMMAND_RE = /\b(test|tests|typecheck|tsc|lint|eslint|vitest|jest|pytest|go\s+test|cargo\s+test|build)\b/i;
-const VALIDATION_TITLE_RE = /(测试|验证|检查|构建|运行|typecheck|lint|test|build)/i;
-const MILESTONE_LIFECYCLE_HINT_MARKER = '【Iris 进度守卫】';
-const MILESTONE_FINAL_CHECK_MARKER = '【Iris 最终进度检查】';
-const MILESTONE_LIFECYCLE_MAX_ITEMS = 10;
-
-
-function summarizeToolArgs(args: Record<string, unknown>): string | undefined {
-  const command = typeof args.command === 'string' ? args.command.trim() : undefined;
-  return command ? command.slice(0, 120) : undefined;
-}
-
 /**
  * 解析合并后的 <task-notification> XML 文本为结构化数据。
  *
@@ -189,10 +172,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
   private milestoneCleanup?: () => void;
   /** 当前 Backend 所属 Agent 名称，用于过滤共享 milestone 事件。 */
   private milestoneRouteAgent?: string;
-  /** 当前 turn 中可注入下一轮 LLM 请求的 milestone 提醒片段。 */
-  private milestoneHintPartsBySession = new Map<string, Part[]>();
-  /** 当前 turn 中已注入的提醒 key，避免同一 milestone 重复刷屏。 */
-  private milestoneHintKeysBySession = new Map<string, Set<string>>();
   /** per-session meta 写队列，避免 milestone 持久化与 session meta 更新互相覆盖。 */
   private metaUpdateLocks = new Map<string, Promise<void>>();
 
@@ -502,159 +481,16 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
     return { sessionId, sourceAgent: owner, routeAgent: this.milestoneRouteAgent };
   }
 
-  private clearMilestoneSuccessHints(turnSessionId: string): void {
-    const parts = this.milestoneHintPartsBySession.get(turnSessionId);
-    const keys = this.milestoneHintKeysBySession.get(turnSessionId);
-    if (!parts || !keys?.size) return;
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const part = parts[i] as { text?: unknown };
-      const text = typeof part.text === 'string' ? part.text : undefined;
-      if (typeof text === 'string' && text.includes('【Iris 进度提醒】')) {
-        parts.splice(i, 1);
-      }
-    }
-    keys.clear();
-  }
-
-  private milestonePriorityForPrompt(status: string): number {
-    switch (status) {
-      case 'in_progress': return 0;
-      case 'blocked': return 1;
-      case 'pending': return 2;
-      case 'completed': return 3;
-      case 'cancelled': return 4;
-      default: return 5;
-    }
-  }
-
-  private buildMilestoneLifecycleHint(sessionId: string): string | undefined {
-    const snapshot = this.getMilestones(sessionId);
-    if (!snapshot || snapshot.items.length === 0) return undefined;
-
-    const owner = this.resolveMilestoneOwner();
-    const ownerItems = owner
-      ? snapshot.items.filter((item) => item.owner === owner || item.owner?.startsWith(`${owner}:`) === true)
-      : snapshot.items;
-    const relevantItems = ownerItems.length > 0 ? ownerItems : snapshot.items;
-    const active = relevantItems.find((item) => item.status === 'in_progress');
-    const nextPending = relevantItems.find((item) => item.status === 'pending');
-    const sorted = [...snapshot.items]
-      .sort((a, b) => {
-        const priorityDelta = this.milestonePriorityForPrompt(a.status) - this.milestonePriorityForPrompt(b.status);
-        if (priorityDelta !== 0) return priorityDelta;
-        return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
-      })
-      .slice(0, MILESTONE_LIFECYCLE_MAX_ITEMS);
-    const hidden = Math.max(0, snapshot.items.length - sorted.length);
-    const lines = sorted.map((item) => {
-      const ownerText = item.owner ? ` owner=${item.owner}` : '';
-      const activeText = item.status === 'in_progress' && item.activeForm ? ` · ${item.activeForm}` : '';
-      return `- #${item.id} [${item.status}] v${item.version}${ownerText}: ${item.title}${activeText}`;
-    });
-    if (hidden > 0) lines.push(`- ... 另有 ${hidden} 项未列出，请用 list_milestones 查看完整状态。`);
-
-    const ownerLine = owner ? `当前执行 owner：${owner}` : '当前执行 owner：未识别（请显式设置 owner，避免跨 Agent 覆盖）';
-    const activeLine = active
-      ? `当前 owner 的进行中项：#${active.id}「${active.title}」（version=${active.version}）。`
-      : nextPending
-        ? `当前 owner 没有 in_progress；若接下来要执行，请先把下一项 #${nextPending.id}「${nextPending.title}」标为 in_progress。`
-        : '当前 owner 没有 in_progress，也没有 pending；最终回复前请确认 open/blocked 是否符合实际。';
-
-    return `${MILESTONE_LIFECYCLE_HINT_MARKER}\n${ownerLine}\n${activeLine}\n\n生命周期规则（参考 Claude Code 的 todo 习惯，但按 Iris 多 Agent owner 隔离执行）：\n- 同一 owner 同一时间只应有一个 in_progress；Iris 会在你启动新项时自动把同 owner 的旧 in_progress 退回 pending。\n- 开始一项实际工作前，调用 update_milestones 把对应项设为 in_progress；完成后立即标 completed，并尽量带 expectedVersion。\n- 工具成功不等于任务完成；只有实现和必要验证满足该 milestone 时才标 completed。失败或外部依赖阻塞时标 blocked 并写 description/blockedBy。\n- 最终回复前检查 milestone：不要声称完成未验证项；若仍有 pending/in_progress/blocked，请向用户说明剩余或阻塞。\n\n当前 milestone 快照：\n${lines.join('\n')}`;
-  }
-
-  private refreshMilestoneLifecycleHint(turnSessionId: string, milestoneSessionId: string = turnSessionId): void {
-    const parts = this.milestoneHintPartsBySession.get(turnSessionId);
-    if (!parts) return;
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const part = parts[i] as { text?: unknown };
-      if (typeof part.text === 'string' && part.text.includes(MILESTONE_LIFECYCLE_HINT_MARKER)) {
-        parts.splice(i, 1);
-      }
-    }
-    const hint = this.buildMilestoneLifecycleHint(milestoneSessionId);
-    if (hint) parts.push({ text: hint });
-  }
-
-  private buildMilestoneFinalCheckHint(sessionId: string): string | undefined {
-    const snapshot = this.getMilestones(sessionId);
-    if (!snapshot || snapshot.items.length === 0 || snapshot.stats.open === 0) return undefined;
-
-    const owner = this.resolveMilestoneOwner();
-    const openItems = snapshot.items
-      .filter((item) => item.status !== 'completed' && item.status !== 'cancelled')
-      .sort((a, b) => {
-        const priorityDelta = this.milestonePriorityForPrompt(a.status) - this.milestonePriorityForPrompt(b.status);
-        if (priorityDelta !== 0) return priorityDelta;
-        return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
-      })
-      .slice(0, MILESTONE_LIFECYCLE_MAX_ITEMS);
-    const hidden = Math.max(0, snapshot.stats.open - openItems.length);
-    const lines = openItems.map((item) => {
-      const ownerText = item.owner ? ` owner=${item.owner}` : '';
-      return `- #${item.id} [${item.status}] v${item.version}${ownerText}: ${item.title}`;
-    });
-    if (hidden > 0) lines.push(`- ... 另有 ${hidden} 个未完成项未列出。`);
-
-    return `${MILESTONE_FINAL_CHECK_MARKER}\n你即将给用户最终回复，但当前 session 仍有未关闭的 milestone。\n当前执行 owner：${owner ?? '未识别'}\n\n请先判断：\n1. 如果这些项其实已经完成或状态过期，请先调用 update_milestones 修正状态（通常 completed/blocked/cancelled，并尽量带 expectedVersion）。\n2. 如果确实还有未完成/阻塞项，可以直接最终回复，但必须明确说明剩余项或阻塞原因，不要声称任务已全部完成。\n3. 不要为了通过检查而把未验证或未完成的项标为 completed。\n\n未关闭 milestone：\n${lines.join('\n')}`;
-  }
-
-  private shouldSuggestMilestoneAfterToolSuccess(invocation: ToolInvocation, title: string): boolean {
-    if (MILESTONE_SUCCESS_HINT_MUTATING_TOOLS.has(invocation.toolName)) return true;
-    if (invocation.toolName === 'search_in_files') {
-      return invocation.args.mode === 'replace';
-    }
-    if (invocation.toolName === 'shell' || invocation.toolName === 'bash') {
-      const command = typeof invocation.args.command === 'string' ? invocation.args.command : '';
-      return VALIDATION_COMMAND_RE.test(command) || VALIDATION_TITLE_RE.test(title);
-    }
-    return false;
-  }
-
-  private recordMilestoneSuccessHint(invocation: ToolInvocation, ctx: { sessionId: string; sourceAgent?: string; routeAgent?: string }): void {
-    if (!this.milestoneManager || invocation.status !== 'success') return;
-    if (!invocation.sessionId) return;
-
-    const parts = this.milestoneHintPartsBySession.get(invocation.sessionId);
-    const keys = this.milestoneHintKeysBySession.get(invocation.sessionId);
-    if (!parts || !keys) return;
-
-    const active = this.milestoneManager.findActiveMilestoneForToolSync(ctx.sessionId, {
-      sourceAgent: ctx.sourceAgent,
-      routeAgent: ctx.routeAgent,
-    });
-    if (!active) return;
-    if (!this.shouldSuggestMilestoneAfterToolSuccess(invocation, active.title)) return;
-
-    const key = `${ctx.sessionId}:${active.id}:${active.version}`;
-    if (keys.has(key)) return;
-    keys.add(key);
-
-    const operation = summarizeToolArgs(invocation.args);
-    const operationLine = operation ? `\n相关操作：${operation}` : '';
-    parts.push({
-      text: `【Iris 进度提醒】\n工具 ${invocation.toolName} 已成功完成。当前进行中的 milestone 是 #${active.id}「${active.title}」（owner=${active.owner ?? '未分配'}，version=${active.version}）。${operationLine}\n如果该 milestone 已经完成，请调用 update_milestones 将它标记为 completed，并带 expectedVersion=${active.version}；如果仍需验证或后续步骤，请继续执行，不要过早标记完成。`,
-    });
-  }
-
   private syncMilestoneOnToolCompletion(invocation: ToolInvocation): void {
     if (!this.milestoneManager || !invocation.sessionId) return;
-    const ctx = this.resolveMilestoneContextFromToolSession(invocation.sessionId);
-    if (invocation.toolName === 'update_milestones' && invocation.status === 'success') {
-      this.clearMilestoneSuccessHints(invocation.sessionId);
-      this.refreshMilestoneLifecycleHint(invocation.sessionId, ctx.sessionId);
-      return;
-    }
     if (MILESTONE_TOOL_SYNC_IGNORED.has(invocation.toolName)) return;
     if (invocation.parentToolId || (invocation.depth ?? 0) > 0) return;
     if (invocation.status === 'error') {
+      const ctx = this.resolveMilestoneContextFromToolSession(invocation.sessionId);
       // 工具错误不等于 milestone 被阻塞：一次命令失败/路径错误通常仍是“正在处理”。
-      // 只记录错误并刷新 lifecycle hint，blocked 由 Agent/用户显式设置。
-      const snapshot = this.milestoneManager.noteActiveToolFailure(ctx.sessionId, { toolId: invocation.id, toolName: invocation.toolName, error: invocation.error ?? '未知错误', sourceAgent: ctx.sourceAgent, routeAgent: ctx.routeAgent });
-      if (snapshot) this.refreshMilestoneLifecycleHint(invocation.sessionId, ctx.sessionId);
-      return;
+      // 只记录错误，blocked 由 Agent/用户显式设置。
+      this.milestoneManager.noteActiveToolFailure(ctx.sessionId, { toolId: invocation.id, toolName: invocation.toolName, error: invocation.error ?? '未知错误', sourceAgent: ctx.sourceAgent, routeAgent: ctx.routeAgent });
     }
-    this.recordMilestoneSuccessHint(invocation, ctx);
   }
 
   /**
@@ -1650,9 +1486,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
     if (mode?.systemPrompt) {
       extraParts.unshift({ text: mode.systemPrompt });
     }
-    this.milestoneHintPartsBySession.set(sessionId, extraParts);
-    this.milestoneHintKeysBySession.set(sessionId, new Set());
-    this.refreshMilestoneLifecycleHint(sessionId);
 
     // 2. 构建 LLM 调用函数
     let lastCallTotalTokens = 0;
@@ -1661,7 +1494,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
     // 通过 onFunctionCallReady 回调提前启动工具执行。
     // 每轮 ToolLoop 循环需要一个新的 executor（因为每轮的工具调用是独立的）。
     let streamingExecutor: StreamingToolExecutor | undefined;
-    let finalMilestoneCheckInjected = false;
 
     const callLLM: LLMCaller = async (request, modelName, callSignal) => {
       let content: Content;
@@ -1722,18 +1554,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
       onRetry: (attempt, maxRetries, error) => {
         this.emit('retry', sessionId, attempt, maxRetries, error);
       },
-      beforeFinalResponse: () => {
-        if (finalMilestoneCheckInjected) return false;
-        const hint = this.buildMilestoneFinalCheckHint(sessionId);
-        if (!hint) return false;
-        extraParts.push({ text: hint });
-        finalMilestoneCheckInjected = true;
-        logger.info(`最终回复前发现未关闭 milestone，已追加进度检查: session=${sessionId}`);
-        return true;
-      },
-    }).finally(() => {
-      this.milestoneHintPartsBySession.delete(sessionId);
-      this.milestoneHintKeysBySession.delete(sessionId);
     });
 
     // 5. 处理 abort

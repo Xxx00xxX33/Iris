@@ -834,11 +834,13 @@ export function useAppKeyboard({
       if (queueEditingId) {
         // Ctrl+J / Ctrl+Enter → 插入换行
         if (key.ctrl && (key.name === 'j' || key.name === 'return' || key.name === 'enter')) {
+          key.preventDefault?.();
           queueEditActions.insert('\n');
           return;
         }
         // Enter → 确认编辑
         if (!key.ctrl && (key.name === 'enter' || key.name === 'return')) {
+          key.preventDefault?.();
           const trimmed = queueEditState.value.trim();
           if (trimmed) {
             queueEdit(queueEditingId, trimmed);
@@ -930,6 +932,7 @@ export function useAppKeyboard({
         return;
       }
       if (key.name === 'l') {
+        key.preventDefault?.();
         approval.toggleLineNumbers();
         return;
       }

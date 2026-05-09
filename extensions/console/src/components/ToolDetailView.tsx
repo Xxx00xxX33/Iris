@@ -117,15 +117,18 @@ export function ToolDetailView({ data, breadcrumb, onNavigateChild, onClose, onA
   const ResultRenderer = isFinal && result != null ? getToolRenderer(toolName) : null;
 
   // 键盘
-  useKeyboard(useCallback((key: { name: string; ctrl?: boolean }) => {
-    if (key.name === 'escape' || key.name === 'q') { onClose(); return; }
-    if (key.name === 'a' && !isFinal && onAbort) { onAbort(invocation.id); return; }
+  useKeyboard(useCallback((key: { name: string; ctrl?: boolean; preventDefault?: () => void }) => {
+    if (key.name === 'escape' || key.name === 'q') { key.preventDefault?.(); onClose(); return; }
+    if (key.name === 'a' && !isFinal && onAbort) { key.preventDefault?.(); onAbort(invocation.id); return; }
     if (children.length > 0) {
       if (key.name === 'up' || key.name === 'k') {
+        key.preventDefault?.();
         setSelectedIdx(p => Math.max(0, p - 1));
       } else if (key.name === 'down' || key.name === 'j') {
+        key.preventDefault?.();
         setSelectedIdx(p => Math.min(children.length - 1, p + 1));
       } else if (key.name === 'return') {
+        key.preventDefault?.();
         const c = children[selectedIdx];
         if (c) onNavigateChild(c.id);
       }

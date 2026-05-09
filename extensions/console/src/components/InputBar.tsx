@@ -195,9 +195,10 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
 
     // 指令面板导航
     if ((showCommands && filtered.length > 0) || (showArgSuggestions && argSuggestions.length > 0)) {
-      if (key.name === 'up') { applySelection(selectedIndex + 1); return; }
-      if (key.name === 'down') { applySelection(selectedIndex - 1); return; }
+      if (key.name === 'up') { key.preventDefault?.(); applySelection(selectedIndex + 1); return; }
+      if (key.name === 'down') { key.preventDefault?.(); applySelection(selectedIndex - 1); return; }
       if (key.name === 'tab') {
+        key.preventDefault?.();
         if (showArgSuggestions && activeArgCommand) {
           const current = argSuggestions[selectedIndex];
           if (current) inputActions.setValue(`${activeArgCommand.name} ${current.value}`);
@@ -225,6 +226,7 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
     // Ctrl+S → 强制优先发送（中断当前生成，跳过队列立即发送）
     if (key.ctrl && key.name === 's') {
       if (!isQueueMode) return;
+      key.preventDefault?.();
       const text = value.trim();
       if (!text) return;
       onPrioritySubmit(text);
@@ -236,6 +238,7 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
 
     // Enter → 提交（生成中自动入队）/ 粘贴时插入换行
     if (key.name === 'enter' || key.name === 'return') {
+      key.preventDefault?.();
       // 快速输入中（疑似粘贴）：将 Enter 当作换行符插入，保留原始换行
       if (rapidKeyCountRef.current >= 3) {
         inputActions.insert('\n');
@@ -259,6 +262,7 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
 
     // Shift+Left/Right → 切换思考强度
     if (thinkingControlEnabled !== false && key.shift && (key.name === 'left' || key.name === 'right')) {
+      key.preventDefault?.();
       onCycleThinkingEffort(key.name === 'right' ? 1 : -1);
       return;
     }
@@ -266,6 +270,7 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
     // Esc：命令面板打开时收起面板（保留输入内容）；否则交给 useAppKeyboard 处理
     if (key.name === 'escape') {
       if (showCommands) {
+        key.preventDefault?.();
         setCommandsDismissed(true);
         setSelectedIndex(0);
       }
@@ -274,6 +279,7 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
 
     // Backspace + 输入框为空 + 有待发送附件 → 移除最后一个附件
     if (key.name === 'backspace' && !value && pendingFiles.length > 0) {
+      key.preventDefault?.();
       onRemoveFile(pendingFiles.length - 1);
       return;
     }

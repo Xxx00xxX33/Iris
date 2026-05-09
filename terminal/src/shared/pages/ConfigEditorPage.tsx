@@ -178,6 +178,7 @@ export function ConfigEditorPage({
         return
       }
       if (isTextInputKeyHandled(key)) {
+        key.preventDefault()
         setEditState((prev) => applyTextInputKey(prev, key))
       }
       return
@@ -185,10 +186,12 @@ export function ConfigEditorPage({
 
     // 导航模式
     if (key.name === "up" || key.name === "k") {
+      key.preventDefault()
       setSelectedIndex((i) => Math.max(0, i - 1))
       return
     }
     if (key.name === "down" || key.name === "j") {
+      key.preventDefault()
       setSelectedIndex((i) => Math.min(fields.length - 1, i + 1))
       return
     }

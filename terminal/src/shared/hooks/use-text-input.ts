@@ -5,8 +5,16 @@ export interface TextInputState {
   cursor: number
 }
 
+export interface TextInputKey {
+  name: string
+  sequence?: string
+  ctrl?: boolean
+  meta?: boolean
+  preventDefault?: () => void
+}
+
 export interface TextInputActions {
-  handleKey: (key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean }) => boolean
+  handleKey: (key: TextInputKey) => boolean
   insert: (text: string) => void
   setValue: (value: string) => void
   set: (value: string, cursor: number) => void
@@ -31,7 +39,7 @@ function wordBoundaryRight(text: string, pos: number): number {
 
 export function applyTextInputKey(
   state: TextInputState,
-  key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean },
+  key: TextInputKey,
 ): TextInputState {
   const { value, cursor } = state
 
@@ -104,7 +112,7 @@ export function insertTextInputValue(state: TextInputState, text: string): TextI
   }
 }
 
-export function isTextInputKeyHandled(key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean }): boolean {
+export function isTextInputKeyHandled(key: TextInputKey): boolean {
   if (key.name === "left" || key.name === "right" || key.name === "home" || key.name === "end") return true
   if (key.name === "backspace" || key.name === "delete") return true
   if ((key.name === "a" || key.name === "e" || key.name === "u" || key.name === "k" || key.name === "d") && key.ctrl) return true
@@ -118,9 +126,16 @@ export function useTextInput(initialValue = ""): [TextInputState, TextInputActio
     cursor: initialValue.length,
   })
 
-  const handleKey = useCallback((key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean }): boolean => {
+  const handleKey = useCallback((key: TextInputKey): boolean => {
+    if (!isTextInputKeyHandled(key)) return false
+
+    // OpenTUI dispatches global useKeyboard handlers before focused renderables.
+    // If an input consumes a printable key but does not prevent default, a focused
+    // scrollbox can still receive bare letters such as k/j/h/l and scroll.
+    key.preventDefault?.()
+
     setState((current) => applyTextInputKey(current, key))
-    return isTextInputKeyHandled(key)
+    return true
   }, [])
 
   const insert = useCallback((text: string) => {

@@ -112,6 +112,7 @@ export function ScrollableInputPage({
     }
 
     if (hasMaskedField && key.name === "h" && key.ctrl) {
+      key.preventDefault()
       setShowMaskedFields((value) => !value)
       return
     }
@@ -136,6 +137,7 @@ export function ScrollableInputPage({
     if (!activeField) return
 
     if (isTextInputKeyHandled(key)) {
+      key.preventDefault()
       setFieldStates((current) => ({
         ...current,
         [activeField.key]: applyTextInputKey(current[activeField.key], key),

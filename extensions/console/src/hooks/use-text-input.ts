@@ -8,8 +8,16 @@ export interface TextInputState {
   cursor: number;
 }
 
+export interface TextInputKey {
+  name: string;
+  sequence?: string;
+  ctrl?: boolean;
+  meta?: boolean;
+  preventDefault?: () => void;
+}
+
 export interface TextInputActions {
-  handleKey: (key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean }) => boolean;
+  handleKey: (key: TextInputKey) => boolean;
   insert: (text: string) => void;
   setValue: (value: string) => void;
   set: (value: string, cursor: number) => void;
@@ -32,6 +40,14 @@ function wordBoundaryRight(text: string, pos: number): number {
   return i;
 }
 
+function isTextInputKeyHandled(key: TextInputKey): boolean {
+  if (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end') return true;
+  if (key.name === 'backspace' || key.name === 'delete') return true;
+  if ((['a', 'e', 'u', 'k', 'd'] as string[]).includes(key.name) && key.ctrl) return true;
+  if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) return true;
+  return false;
+}
+
 export function useTextInput(initialValue = ''): [TextInputState, TextInputActions] {
   const [state, setState] = useState<TextInputState>({
     value: initialValue,
@@ -39,7 +55,14 @@ export function useTextInput(initialValue = ''): [TextInputState, TextInputActio
   });
 
   const handleKey = useCallback(
-    (key: { name: string; sequence?: string; ctrl?: boolean; meta?: boolean }): boolean => {
+    (key: TextInputKey): boolean => {
+      if (!isTextInputKeyHandled(key)) return false;
+
+      // OpenTUI 先触发全局 useKeyboard，再触发当前聚焦 renderable 的键盘处理。
+      // 文本输入消费的按键必须阻止默认行为，否则 focused <scrollbox> 会继续
+      // 收到裸字母（例如 k/j/h/l）并触发 Vim 风格滚动，导致“输入 k 聊天记录上滚”。
+      key.preventDefault?.();
+
       setState((s) => {
         const { value, cursor } = s;
 
@@ -85,11 +108,7 @@ export function useTextInput(initialValue = ''): [TextInputState, TextInputActio
         return s;
       });
 
-      if (key.name === 'left' || key.name === 'right' || key.name === 'home' || key.name === 'end') return true;
-      if (key.name === 'backspace' || key.name === 'delete') return true;
-      if ((['a', 'e', 'u', 'k', 'd'] as string[]).includes(key.name) && key.ctrl) return true;
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) return true;
-      return false;
+      return true;
     },
     [],
   );

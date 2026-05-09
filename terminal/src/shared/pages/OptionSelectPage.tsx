@@ -106,11 +106,13 @@ export function OptionSelectPage({
     }
 
     if (key.name === "up" || key.name === "k") {
+      key.preventDefault()
       setSelectedIndex((index) => Math.max(0, index - 1))
       return
     }
 
     if (key.name === "down" || key.name === "j") {
+      key.preventDefault()
       setSelectedIndex((index) => Math.min(options.length - 1, index + 1))
       return
     }

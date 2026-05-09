@@ -25,7 +25,7 @@ import { SessionListView } from './components/SessionListView';
 import { MemoryListView, type MemoryItem, type MemoryFilter } from './components/MemoryListView';
 import { ExtensionListView, type ExtensionItem } from './components/ExtensionListView';
 import { SettingsView } from './components/SettingsView';
-import { MILESTONE_PANEL_MAX_ITEMS } from './components/MilestoneListView';
+import { PROGRESS_PANEL_MAX_ITEMS } from './components/ProgressListView';
 import { type ConfirmChoice, type PendingConfirm, type SettingsInitialSection, type ThinkingEffortLevel, type ViewMode } from './app-types';
 import type { AppProps } from './app-props';
 import type { Command } from './input-commands';
@@ -64,8 +64,8 @@ export function App({
   onSubmit,
   onFileAttach,
   getCurrentSessionId,
-  onLoadMilestoneUiState,
-  onSaveMilestoneUiState,
+  onLoadProgressUiState,
+  onSaveProgressUiState,
   onRemoveFile: onRemoveFileProp,
   onFileBrowserSelect,
   onFileBrowserGoUp,
@@ -144,8 +144,8 @@ export function App({
   const initialMaxLevel = initialLevels[initialLevels.length - 1];
   const [thinkingEffort, setThinkingEffort] = useState<ThinkingEffortLevel>(thinkingControlEnabled === false ? 'not-set' : initialMaxLevel);
   const [thoughtsToggleSignal, setThoughtsToggleSignal] = useState(0);
-  const [milestoneCollapsed, setMilestoneCollapsed] = useState(false);
-  const [milestoneScrollOffset, setMilestoneScrollOffset] = useState(0);
+  const [progressCollapsed, setProgressCollapsed] = useState(false);
+  const [progressScrollOffset, setProgressScrollOffset] = useState(0);
 
   // /model 视图状态
   const [modelStatusMessage, setModelStatusMessage] = useState<string | null>(null);
@@ -412,47 +412,47 @@ export function App({
   }, [viewMode, appState.isGenerating, messageQueue, onSubmit]);
 
   useEffect(() => {
-    const total = appState.milestoneSnapshot?.items.length ?? 0;
-    const maxOffset = Math.max(0, total - MILESTONE_PANEL_MAX_ITEMS);
-    setMilestoneScrollOffset((prev) => Math.min(Math.max(0, prev), maxOffset));
-  }, [appState.milestoneSnapshot?.items.length]);
+    const total = appState.progressSnapshot?.items.length ?? 0;
+    const maxOffset = Math.max(0, total - PROGRESS_PANEL_MAX_ITEMS);
+    setProgressScrollOffset((prev) => Math.min(Math.max(0, prev), maxOffset));
+  }, [appState.progressSnapshot?.items.length]);
 
   useEffect(() => {
-    const snapshot = appState.milestoneSnapshot;
+    const snapshot = appState.progressSnapshot;
     if (!snapshot || snapshot.items.length === 0) {
-      setMilestoneCollapsed(false);
+      setProgressCollapsed(false);
       return;
     }
     if (snapshot.stats.open === 0) {
-      setMilestoneCollapsed(false);
-      void onSaveMilestoneUiState?.(snapshot.sessionId, { expanded: true, snapshotUpdatedAt: snapshot.updatedAt });
+      setProgressCollapsed(false);
+      void onSaveProgressUiState?.(snapshot.sessionId, { expanded: true, snapshotUpdatedAt: snapshot.updatedAt });
       return;
     }
 
     let cancelled = false;
-    void onLoadMilestoneUiState?.(snapshot.sessionId)
+    void onLoadProgressUiState?.(snapshot.sessionId)
       .then((state) => {
         if (cancelled) return;
-        setMilestoneCollapsed(state?.expanded === false);
+        setProgressCollapsed(state?.expanded === false);
       })
       .catch(() => {
-        if (!cancelled) setMilestoneCollapsed(false);
+        if (!cancelled) setProgressCollapsed(false);
       });
     return () => { cancelled = true; };
-  }, [appState.milestoneSnapshot?.sessionId, appState.milestoneSnapshot?.updatedAt, appState.milestoneSnapshot?.stats.open, onLoadMilestoneUiState, onSaveMilestoneUiState]);
+  }, [appState.progressSnapshot?.sessionId, appState.progressSnapshot?.updatedAt, appState.progressSnapshot?.stats.open, onLoadProgressUiState, onSaveProgressUiState]);
 
-  const setMilestoneCollapsedPersisted = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((action) => {
-    setMilestoneCollapsed((prev) => {
+  const setProgressCollapsedPersisted = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((action) => {
+    setProgressCollapsed((prev) => {
       const next = typeof action === 'function'
         ? (action as (previous: boolean) => boolean)(prev)
         : action;
-      const snapshot = appState.milestoneSnapshot;
+      const snapshot = appState.progressSnapshot;
       if (next !== prev && snapshot && snapshot.items.length > 0 && snapshot.stats.open > 0) {
-        void onSaveMilestoneUiState?.(snapshot.sessionId, { expanded: !next, snapshotUpdatedAt: snapshot.updatedAt });
+        void onSaveProgressUiState?.(snapshot.sessionId, { expanded: !next, snapshotUpdatedAt: snapshot.updatedAt });
       }
       return next;
     });
-  }, [appState.milestoneSnapshot, onSaveMilestoneUiState]);
+  }, [appState.progressSnapshot, onSaveProgressUiState]);
 
   useEffect(() => {
     if (viewMode === 'model-list') return;
@@ -555,9 +555,9 @@ export function App({
     queueEditActions,
     onToggleThoughts: () => setThoughtsToggleSignal((prev) => prev + 1),
     toolListItems: appState.toolListItems,
-    milestoneSnapshot: appState.milestoneSnapshot,
-    setMilestoneCollapsed: setMilestoneCollapsedPersisted,
-    setMilestoneScrollOffset,
+    progressSnapshot: appState.progressSnapshot,
+    setProgressCollapsed: setProgressCollapsedPersisted,
+    setProgressScrollOffset,
     setSessionList,
     sessionPendingDeleteId,
     setSessionPendingDeleteId,
@@ -611,9 +611,9 @@ export function App({
 
   const currentApply = appState.isGenerating ? appState.pendingApplies[0] : undefined;
   const hasMessages = appState.messages.length > 0 || appState.isGenerating;
-  const activeMilestone = appState.milestoneSnapshot?.items.find((item) => item.status === 'in_progress');
-  const milestoneGeneratingLabel = activeMilestone ? `${activeMilestone.activeForm ?? activeMilestone.title}...` : undefined;
-  const effectiveGeneratingLabel = appState.generatingLabel ?? milestoneGeneratingLabel;
+  const activeProgress = appState.progressSnapshot?.items.find((item) => item.status === 'in_progress');
+  const progressGeneratingLabel = activeProgress ? `${activeProgress.activeForm ?? activeProgress.title}...` : undefined;
+  const effectiveGeneratingLabel = appState.generatingLabel ?? progressGeneratingLabel;
   const rightStatusSegments = useMemo(
     () => getStatusSegments({ sessionId: getCurrentSessionId?.() }, 'right'),
     // statusSegmentVersion 由 provider 的 onDidChange 推动刷新；getCurrentSessionId 读取 ConsolePlatform 的当前字段。
@@ -771,9 +771,9 @@ export function App({
           thoughtsToggleSignal={thoughtsToggleSignal}
           hasActiveTools={appState.toolInvocations.some(t => t.status === 'executing' || t.status === 'queued')}
           scrollBoxRef={chatScrollBoxRef}
-          milestoneSnapshot={appState.milestoneSnapshot}
-          milestoneCollapsed={(appState.milestoneSnapshot?.stats.open ?? 0) > 0 ? milestoneCollapsed : false}
-          milestoneScrollOffset={milestoneScrollOffset}
+          progressSnapshot={appState.progressSnapshot}
+          progressCollapsed={(appState.progressSnapshot?.stats.open ?? 0) > 0 ? progressCollapsed : false}
+          progressScrollOffset={progressScrollOffset}
         />
       ) : null}
 

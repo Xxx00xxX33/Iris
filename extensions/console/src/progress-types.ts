@@ -1,11 +1,11 @@
-export type MilestoneStatusLike = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
+export type ProgressStatusLike = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
 
-export interface MilestoneItemLike {
+export interface ProgressItemLike {
   id: string;
   title: string;
   description?: string;
   activeForm?: string;
-  status: MilestoneStatusLike;
+  status: ProgressStatusLike;
   owner?: string;
   blockedBy?: string[];
   blocks?: string[];
@@ -16,9 +16,9 @@ export interface MilestoneItemLike {
   updatedBy?: string;
 }
 
-export interface MilestoneSnapshotLike {
+export interface ProgressSnapshotLike {
   sessionId: string;
-  items: MilestoneItemLike[];
+  items: ProgressItemLike[];
   stats: {
     total: number;
     pending: number;

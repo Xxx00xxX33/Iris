@@ -49,7 +49,13 @@ import { resolveConsoleConfig } from './console-config';
 import { CONSOLE_TOOL_DISPLAY_SERVICE_ID, consoleToolDisplayService } from './tool-display-service';
 import { CONSOLE_SLASH_COMMAND_SERVICE_ID, consoleSlashCommandService } from './slash-command-service';
 import { CONSOLE_STATUS_SEGMENT_SERVICE_ID, consoleStatusSegmentService } from './status-segment-service';
-import type { MilestoneSnapshotLike } from './milestone-types';
+import type { ProgressSnapshotLike } from './progress-types';
+import {
+  CONSOLE_PROGRESS_SERVICE_ID,
+  consoleProgressService,
+  type ConsoleProgressArchiveLike,
+  type ConsoleProgressUiStateLike,
+} from './progress-service';
 
 /** 从 shell 命令生成前缀通配模式（如 "npm install express" → "npm install *"） */
 function generateCommandPattern(command: string): string {
@@ -73,7 +79,6 @@ const REMOTE_CONNECT_WS_CLIENT_SERVICE = 'remote-connect:WsIPCClient';
 const REMOTE_CONNECT_DISCOVERY_SERVICE = 'remote-connect:discoverLanInstances';
 const PLAN_MODE_SERVICE_ID = 'plan-mode';
 const REMOTE_EXEC_ENVIRONMENT_SERVICE_ID = 'remote-exec:environment';
-const MILESTONE_EXTENSION_SERVICE_ID = 'milestone:service';
 
 interface RemoteExecEnvironmentRestoreResultLike {
   ok: boolean;
@@ -84,22 +89,6 @@ interface RemoteExecEnvironmentRestoreResultLike {
   current: string;
   message: string;
   error?: string;
-}
-
-interface MilestoneArchiveLike {
-  id: string;
-  snapshot: MilestoneSnapshotLike;
-  archivedAt: number;
-  afterHistoryIndex: number;
-}
-
-interface MilestoneServiceLike {
-  getSnapshot(sessionId: string): MilestoneSnapshotLike;
-  loadLatest(sessionId: string): Promise<MilestoneSnapshotLike | undefined>;
-  loadArchives(sessionId: string): Promise<MilestoneArchiveLike[]>;
-  loadUiState(sessionId: string): Promise<{ expanded: boolean; updatedAt?: number; snapshotUpdatedAt?: number } | undefined>;
-  setUiState(sessionId: string, state: { expanded: boolean; snapshotUpdatedAt?: number }): Promise<void>;
-  onDidUpdate?(listener: (sessionId: string, snapshot: MilestoneSnapshotLike) => void): { dispose(): void };
 }
 
 interface RemoteExecEnvironmentServiceLike {
@@ -623,6 +612,16 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         version: '1.0.0',
       });
     }
+    if (services && !services.has(CONSOLE_PROGRESS_SERVICE_ID)) {
+      services.register(CONSOLE_PROGRESS_SERVICE_ID, consoleProgressService, {
+        description: 'Console TUI 通用进度面板服务',
+        version: '1.0.0',
+      });
+    }
+    consoleProgressService.onDidChange(() => { void this.syncProgress(); });
+    consoleProgressService.onDidUpdate((_providerId, sid, snapshot) => {
+      if (sid === this.sessionId) this.appHandle?.setProgress(snapshot);
+    });
   }
 
   private getPlanModeService(): PlanModeServiceLike | undefined {
@@ -631,10 +630,6 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
 
   private getRemoteExecEnvironmentService(): RemoteExecEnvironmentServiceLike | undefined {
     return (this.api?.services as any)?.get?.(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID) as RemoteExecEnvironmentServiceLike | undefined;
-  }
-
-  private getMilestoneService(): MilestoneServiceLike | undefined {
-    return (this.api?.services as any)?.get?.(MILESTONE_EXTENSION_SERVICE_ID) as MilestoneServiceLike | undefined;
   }
 
   private async restoreRemoteExecEnvironmentForSession(sessionId: string, validate: boolean): Promise<RemoteExecEnvironmentRestoreResultLike | undefined> {
@@ -661,13 +656,13 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     }
   }
 
-  private async syncMilestones(): Promise<void> {
+  private async syncProgress(): Promise<void> {
     try {
-      const service = this.getMilestoneService();
-      const snapshot = await service?.loadLatest?.(this.sessionId) ?? service?.getSnapshot?.(this.sessionId);
-      this.appHandle?.setMilestones(snapshot ?? null);
+      const provider = consoleProgressService.getActiveProvider();
+      const snapshot = await provider?.loadLatest?.(this.sessionId);
+      this.appHandle?.setProgress(snapshot ?? null);
     } catch {
-      this.appHandle?.setMilestones(null);
+      this.appHandle?.setProgress(null);
     }
   }
 
@@ -823,12 +818,6 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
       }
     });
 
-    this.getMilestoneService()?.onDidUpdate?.((sid: string, snapshot: MilestoneSnapshotLike) => {
-      if (sid === this.sessionId) {
-        this.appHandle?.setMilestones(snapshot);
-      }
-    });
-
     // 监听 agent:notification 获取任务描述（在 turn:start 之前触发）。
     // [职责分离] 第 5 个参数 taskType 区分 'sub_agent'、'delegate'、'cron'。
     // 委派任务走单独的计数器（delegateTaskCount）；cron 任务根据 silent 标记决定渲染方式。
@@ -915,12 +904,6 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
       this.appHandle?.addMessage('assistant', text);
     });
 
-    this.onBackend('milestones:update', (sid: string, snapshot: any) => {
-      if (sid === this.sessionId) {
-        this.appHandle?.setMilestones(snapshot);
-      }
-    });
-
     this.onBackend('auto-compact', (sid: string, summaryText: string) => {
       if (sid === this.sessionId) {
         const fullText = `[Context Summary]\n\n${summaryText}`;
@@ -981,14 +964,14 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         onReady: (handle: AppHandle) => {
           this.appHandle = handle;
           this.syncPlanModeStatus();
-          void this.syncMilestones();
+          void this.syncProgress();
           resolve();
         },
         onSubmit: (text: string) => this.handleInput(text),
         onFileAttach: (filePath: string) => this.handleFileAttach(filePath),
         getCurrentSessionId: () => this.sessionId,
-        onLoadMilestoneUiState: (sessionId: string) => this.loadMilestoneUiState(sessionId),
-        onSaveMilestoneUiState: (sessionId: string, state: { expanded: boolean; snapshotUpdatedAt?: number }) => this.saveMilestoneUiState(sessionId, state),
+        onLoadProgressUiState: (sessionId: string) => this.loadProgressUiState(sessionId),
+        onSaveProgressUiState: (sessionId: string, state: { expanded: boolean; snapshotUpdatedAt?: number }) => this.saveProgressUiState(sessionId, state),
         onRemoveFile: (index: number) => this.handleRemoveFile(index),
         onFileBrowserSelect: (dirPath: string, entry: any, showHidden: boolean) => {
           this.handleFileBrowserSelect(dirPath, entry, showHidden);
@@ -1559,7 +1542,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     this.currentToolIds.clear();
     this._activeHandles.clear();
     this.appHandle?.setPlanModeActive(false);
-    this.appHandle?.setMilestones(null);
+    this.appHandle?.setProgress(null);
     this.clearRemoteExecSession(this.sessionId);
   }
 
@@ -1807,25 +1790,25 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
 
 
 
-  private async loadMilestoneArchives(sessionId: string): Promise<MilestoneArchiveLike[]> {
+  private async loadProgressArchives(sessionId: string): Promise<ConsoleProgressArchiveLike[]> {
     try {
-      return await this.getMilestoneService()?.loadArchives?.(sessionId) ?? [];
+      return await consoleProgressService.getActiveProvider()?.loadHistory?.(sessionId) ?? [];
     } catch {
       return [];
     }
   }
 
-  private async loadMilestoneUiState(sessionId: string): Promise<{ expanded: boolean; updatedAt?: number; snapshotUpdatedAt?: number } | undefined> {
+  private async loadProgressUiState(sessionId: string): Promise<{ expanded: boolean; updatedAt?: number; snapshotUpdatedAt?: number } | undefined> {
     try {
-      return await this.getMilestoneService()?.loadUiState?.(sessionId);
+      return await consoleProgressService.getActiveProvider()?.loadUiState?.(sessionId);
     } catch {
       return undefined;
     }
   }
 
-  private async saveMilestoneUiState(sessionId: string, state: { expanded: boolean; snapshotUpdatedAt?: number }): Promise<void> {
+  private async saveProgressUiState(sessionId: string, state: { expanded: boolean; snapshotUpdatedAt?: number }): Promise<void> {
     try {
-      await this.getMilestoneService()?.setUiState?.(sessionId, state);
+      await consoleProgressService.getActiveProvider()?.saveUiState?.(sessionId, state);
     } catch {
       // UI 偏好保存失败不影响对话主流程。
     }
@@ -1841,17 +1824,17 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     const userInputEpochAtLoadStart = this.userInputEpoch;
     const envRestorePromise = this.restoreRemoteExecEnvironmentForSession(id, true);
     this.syncPlanModeStatus();
-    await this.syncMilestones();
+    await this.syncProgress();
 
     const history = await this.backend.getHistory?.(id) ?? [];
-    const milestoneArchives = (await this.loadMilestoneArchives(id))
+    const progressArchives = (await this.loadProgressArchives(id))
       .filter(entry => entry?.snapshot?.items?.length > 0)
       .sort((a, b) => (a.afterHistoryIndex ?? 0) - (b.afterHistoryIndex ?? 0) || (a.archivedAt ?? 0) - (b.archivedAt ?? 0));
-    let milestoneArchiveCursor = 0;
-    const insertMilestoneArchivesUpTo = (position: number) => {
-      while (milestoneArchiveCursor < milestoneArchives.length && (milestoneArchives[milestoneArchiveCursor].afterHistoryIndex ?? 0) <= position) {
-        const archive = milestoneArchives[milestoneArchiveCursor++];
-        this.appHandle?.addMilestoneArchive(archive.snapshot, archive.archivedAt);
+    let progressArchiveCursor = 0;
+    const insertProgressArchivesUpTo = (position: number) => {
+      while (progressArchiveCursor < progressArchives.length && (progressArchives[progressArchiveCursor].afterHistoryIndex ?? 0) <= position) {
+        const archive = progressArchives[progressArchiveCursor++];
+        this.appHandle?.addProgressArchive(archive.snapshot, archive.archivedAt);
       }
     };
 
@@ -1869,7 +1852,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
       }
     }
 
-    insertMilestoneArchivesUpTo(0);
+    insertProgressArchivesUpTo(0);
 
     for (let i = 0; i < history.length; i++) {
       const msg = history[i];
@@ -1888,13 +1871,13 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         this.appHandle?.addHistoryMessage(role as 'user' | 'assistant', parts, meta);
       }
 
-      insertMilestoneArchivesUpTo(i + 1);
+      insertProgressArchivesUpTo(i + 1);
 
       if (msg.usageMetadata) {
         this.appHandle?.setUsage(msg.usageMetadata);
       }
     }
-    insertMilestoneArchivesUpTo(Number.MAX_SAFE_INTEGER);
+    insertProgressArchivesUpTo(Number.MAX_SAFE_INTEGER);
 
     const envRestore = await envRestorePromise;
     // 如果用户在环境恢复完成前已经发送了新消息，或又切换/加载了其他会话，

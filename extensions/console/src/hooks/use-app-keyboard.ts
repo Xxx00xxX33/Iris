@@ -12,11 +12,11 @@ import { appendCommandMessage } from '../message-utils';
 import type { QueuedMessage } from './use-message-queue';
 import { filterMemories, nextFilter, type MemoryItem, type MemoryFilter } from '../components/MemoryListView';
 import { normalizePastedSingleLine, readClipboardText } from '../terminal-compat';
-import type { MilestoneSnapshotLike } from '../milestone-types';
+import type { ProgressSnapshotLike } from '../progress-types';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
-const MILESTONE_PANEL_MAX_ITEMS = 8;
+const PROGRESS_PANEL_MAX_ITEMS = 8;
 
 interface ApprovalController {
   approvalChoice: ApprovalChoice;
@@ -111,11 +111,11 @@ interface UseAppKeyboardOptions {
   queueEditActions: TextInputActions;
   onToggleThoughts: () => void;
   toolListItems: ToolInvocation[];
-  /** 当前会话 milestone/task 清单快照，用于底部 Iris 进度快捷键 */
-  milestoneSnapshot?: MilestoneSnapshotLike | null;
+  /** 当前会话 progress/task 清单快照，用于底部 Iris 进度快捷键 */
+  progressSnapshot?: ProgressSnapshotLike | null;
   /** 底部 Iris 进度折叠/滚动控制 */
-  setMilestoneCollapsed: SetState<boolean>;
-  setMilestoneScrollOffset: SetState<number>;
+  setProgressCollapsed: SetState<boolean>;
+  setProgressScrollOffset: SetState<number>;
   /** agent-list 视图用 */
   agentList: AgentDefinitionLike[];
   onSelectAgent?: (agentName: string) => void;
@@ -280,9 +280,9 @@ export function useAppKeyboard({
   queueEditActions,
   onToggleThoughts,
   toolListItems,
-  milestoneSnapshot,
-  setMilestoneCollapsed,
-  setMilestoneScrollOffset,
+  progressSnapshot,
+  setProgressCollapsed,
+  setProgressScrollOffset,
   agentList,
   onSelectAgent,
   memoryList,
@@ -396,36 +396,36 @@ export function useAppKeyboard({
       return;
     }
 
-    // Alt+M：折叠/展开底部 Iris 进度；Alt+↑/↓：专门滚动 milestone 列表。
+    // Alt+M：折叠/展开底部 Iris 进度；Alt+↑/↓：专门滚动 progress 列表。
     // 仅在聊天主视图且没有审批/确认/问答面板接管键盘时生效，避免干扰其它视图的方向键语义。
-    const milestoneItemCount = milestoneSnapshot?.items.length ?? 0;
-    const milestoneOpenCount = milestoneSnapshot?.stats.open ?? 0;
-    const canControlMilestones = viewMode === 'chat'
-      && milestoneItemCount > 0
-      && milestoneOpenCount > 0
+    const progressItemCount = progressSnapshot?.items.length ?? 0;
+    const progressOpenCount = progressSnapshot?.stats.open ?? 0;
+    const canControlProgress = viewMode === 'chat'
+      && progressItemCount > 0
+      && progressOpenCount > 0
       && !pendingConfirm
       && !askQuestionActive
       && pendingApprovals.length === 0
       && pendingApplies.length === 0;
 
-    if (canControlMilestones && isAltLetterShortcut(key, 'm')) {
+    if (canControlProgress && isAltLetterShortcut(key, 'm')) {
       key.preventDefault?.();
-      setMilestoneCollapsed((prev) => !prev);
+      setProgressCollapsed((prev) => !prev);
       return;
     }
 
-    const milestoneScrollKey = canControlMilestones ? altScrollKeyName(key) : undefined;
-    if (milestoneScrollKey) {
+    const progressScrollKey = canControlProgress ? altScrollKeyName(key) : undefined;
+    if (progressScrollKey) {
       key.preventDefault?.();
-      const maxOffset = Math.max(0, milestoneItemCount - MILESTONE_PANEL_MAX_ITEMS);
+      const maxOffset = Math.max(0, progressItemCount - PROGRESS_PANEL_MAX_ITEMS);
       if (maxOffset > 0) {
-        const pageStep = Math.max(1, Math.floor(MILESTONE_PANEL_MAX_ITEMS / 2));
-        const delta = milestoneScrollKey === 'up' ? -1
-          : milestoneScrollKey === 'down' ? 1
-            : milestoneScrollKey === 'pageup' ? -pageStep
+        const pageStep = Math.max(1, Math.floor(PROGRESS_PANEL_MAX_ITEMS / 2));
+        const delta = progressScrollKey === 'up' ? -1
+          : progressScrollKey === 'down' ? 1
+            : progressScrollKey === 'pageup' ? -pageStep
               : pageStep;
-        setMilestoneCollapsed(false);
-        setMilestoneScrollOffset((prev) => Math.min(maxOffset, Math.max(0, prev + delta)));
+        setProgressCollapsed(false);
+        setProgressScrollOffset((prev) => Math.min(maxOffset, Math.max(0, prev + delta)));
       }
       return;
     }

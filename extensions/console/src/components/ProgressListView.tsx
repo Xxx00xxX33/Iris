@@ -1,14 +1,14 @@
 /** @jsxImportSource @opentui/react */
 
 import React, { useMemo } from 'react';
-import type { MilestoneSnapshotLike, MilestoneItemLike, MilestoneStatusLike } from '../milestone-types';
+import type { ProgressSnapshotLike, ProgressItemLike, ProgressStatusLike } from '../progress-types';
 import { C } from '../theme';
 import { ICONS } from '../terminal-compat';
 
-export const MILESTONE_PANEL_MAX_ITEMS = 8;
+export const PROGRESS_PANEL_MAX_ITEMS = 8;
 
-interface MilestoneListViewProps {
-  snapshot?: MilestoneSnapshotLike | null;
+interface ProgressListViewProps {
+  snapshot?: ProgressSnapshotLike | null;
   /** 当空间有限时最多显示多少条；TUI 面板上限固定为 8 条。 */
   maxItems?: number;
   /** 独立面板模式会显示汇总标题。 */
@@ -30,34 +30,34 @@ interface OwnerStats {
 
 interface OwnerGroup {
   owner: string;
-  items: MilestoneItemLike[];
+  items: ProgressItemLike[];
   stats: OwnerStats;
 }
 
-function compareById(a: MilestoneItemLike, b: MilestoneItemLike): number {
+function compareById(a: ProgressItemLike, b: ProgressItemLike): number {
   const an = parseInt(a.id.replace(/^m/i, ''), 10);
   const bn = parseInt(b.id.replace(/^m/i, ''), 10);
   if (!Number.isNaN(an) && !Number.isNaN(bn) && an !== bn) return an - bn;
   return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
 }
 
-function getStatusIcon(status: MilestoneStatusLike): { icon: string; color: string } {
+function getStatusIcon(status: ProgressStatusLike): { icon: string; color: string } {
   switch (status) {
     case 'completed':
       return { icon: ICONS.checkmark, color: C.accent };
     case 'in_progress':
-      return { icon: ICONS.milestoneInProgress, color: C.accent };
+      return { icon: ICONS.progressInProgress, color: C.accent };
     case 'blocked':
-      return { icon: ICONS.milestoneBlocked, color: C.warn };
+      return { icon: ICONS.progressBlocked, color: C.warn };
     case 'cancelled':
       return { icon: ICONS.cancelled, color: C.dim };
     case 'pending':
     default:
-      return { icon: ICONS.milestonePending, color: C.dim };
+      return { icon: ICONS.progressPending, color: C.dim };
   }
 }
 
-function statusLabel(status: MilestoneStatusLike): string {
+function statusLabel(status: ProgressStatusLike): string {
   switch (status) {
     case 'in_progress': return '进行中';
     case 'completed': return '完成';
@@ -72,11 +72,11 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, Math.max(0, max - ICONS.ellipsis.length))}${ICONS.ellipsis}`;
 }
 
-function ownerLabel(item: MilestoneItemLike, fallback?: string): string {
+function ownerLabel(item: ProgressItemLike, fallback?: string): string {
   return (item.owner || fallback || '未分配').trim();
 }
 
-function displayMilestoneId(id: string): string {
+function displayProgressId(id: string): string {
   return id.replace(/^m(?=\d+$)/i, '');
 }
 
@@ -84,7 +84,7 @@ function createOwnerStats(): OwnerStats {
   return { total: 0, completed: 0, inProgress: 0, blocked: 0 };
 }
 
-function buildOwnerStats(items: MilestoneItemLike[], preferredOwner?: string): Map<string, OwnerStats> {
+function buildOwnerStats(items: ProgressItemLike[], preferredOwner?: string): Map<string, OwnerStats> {
   const map = new Map<string, OwnerStats>();
   for (const item of items) {
     const owner = ownerLabel(item, preferredOwner);
@@ -101,7 +101,7 @@ function buildOwnerStats(items: MilestoneItemLike[], preferredOwner?: string): M
   return map;
 }
 
-function buildOwnerGroups(items: MilestoneItemLike[], preferredOwner?: string, ownerStats = buildOwnerStats(items, preferredOwner)): OwnerGroup[] {
+function buildOwnerGroups(items: ProgressItemLike[], preferredOwner?: string, ownerStats = buildOwnerStats(items, preferredOwner)): OwnerGroup[] {
   const map = new Map<string, OwnerGroup>();
   for (const item of items) {
     const owner = ownerLabel(item, preferredOwner);
@@ -126,8 +126,8 @@ function buildOwnerGroups(items: MilestoneItemLike[], preferredOwner?: string, o
 }
 
 function normalizeMaxItems(maxItems: number): number {
-  if (!Number.isFinite(maxItems)) return MILESTONE_PANEL_MAX_ITEMS;
-  return Math.max(1, Math.min(MILESTONE_PANEL_MAX_ITEMS, Math.floor(maxItems)));
+  if (!Number.isFinite(maxItems)) return PROGRESS_PANEL_MAX_ITEMS;
+  return Math.max(1, Math.min(PROGRESS_PANEL_MAX_ITEMS, Math.floor(maxItems)));
 }
 
 function clampScrollOffset(offset: number, total: number, maxItems: number): number {
@@ -136,7 +136,7 @@ function clampScrollOffset(offset: number, total: number, maxItems: number): num
   return Math.min(maxOffset, Math.max(0, Math.floor(offset)));
 }
 
-function currentItemForCollapsed(sorted: MilestoneItemLike[]): MilestoneItemLike | undefined {
+function currentItemForCollapsed(sorted: ProgressItemLike[]): ProgressItemLike | undefined {
   return sorted.find((item) => item.status === 'in_progress')
     ?? sorted.find((item) => item.status === 'blocked')
     ?? sorted.find((item) => item.status === 'pending')
@@ -144,7 +144,7 @@ function currentItemForCollapsed(sorted: MilestoneItemLike[]): MilestoneItemLike
     ?? sorted[sorted.length - 1];
 }
 
-function collapsedPrefix(item?: MilestoneItemLike): string {
+function collapsedPrefix(item?: ProgressItemLike): string {
   if (!item) return '当前';
   switch (item.status) {
     case 'in_progress': return '当前';
@@ -162,14 +162,14 @@ function controlHintText(collapsed: boolean, canScroll: boolean): string {
   return parts.join(` ${ICONS.separator} `);
 }
 
-export function MilestoneListView({
+export function ProgressListView({
   snapshot,
-  maxItems = MILESTONE_PANEL_MAX_ITEMS,
+  maxItems = PROGRESS_PANEL_MAX_ITEMS,
   standalone = false,
   collapsed = false,
   scrollOffset = 0,
   showControls = false,
-}: MilestoneListViewProps) {
+}: ProgressListViewProps) {
   const items = snapshot?.items ?? [];
   const stats = snapshot?.stats;
   const itemLimit = normalizeMaxItems(maxItems);
@@ -257,7 +257,7 @@ export function MilestoneListView({
             const isActive = item.status === 'in_progress';
             const isDim = isCompleted || item.status === 'cancelled';
             const blocker = item.blockedBy && item.blockedBy.length > 0
-              ? ` ${ICONS.resultArrow} 依赖 ${item.blockedBy.map(id => `#${displayMilestoneId(id)}`).join(', ')}`
+              ? ` ${ICONS.resultArrow} 依赖 ${item.blockedBy.map(id => `#${displayProgressId(id)}`).join(', ')}`
               : '';
             const title = truncate(item.title, 90);
             return (
@@ -265,7 +265,7 @@ export function MilestoneListView({
                 <text>
                   <span fg={C.dim}>  </span>
                   <span fg={color}>{icon}</span>
-                  <span fg={C.dim}> {displayMilestoneId(item.id)}. </span>
+                  <span fg={C.dim}> {displayProgressId(item.id)}. </span>
                   <span fg={isDim ? C.dim : isActive ? C.text : C.textSec}>
                     {isActive ? <strong>{title}</strong> : title}
                   </span>

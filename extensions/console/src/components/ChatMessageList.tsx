@@ -5,8 +5,8 @@ import { useTerminalDimensions } from '@opentui/react';
 import { GeneratingTimer, type RetryInfo } from './GeneratingTimer';
 import { MessageItem, type ChatMessage, type MessagePart } from './MessageItem';
 import type { MutableRefObject } from 'react';
-import type { MilestoneSnapshotLike } from '../milestone-types';
-import { MilestoneListView } from './MilestoneListView';
+import type { ProgressSnapshotLike } from '../progress-types';
+import { ProgressListView } from './ProgressListView';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -24,12 +24,12 @@ interface ChatMessageListProps {
   thoughtsToggleSignal?: number;
   /** 传入 ref 以供外部（如 F6 复制模式）程序化滚动 */
   scrollBoxRef?: MutableRefObject<any>;
-  /** 当前会话 milestone/task 清单快照 */
-  milestoneSnapshot?: MilestoneSnapshotLike | null;
+  /** 当前会话 progress/task 清单快照 */
+  progressSnapshot?: ProgressSnapshotLike | null;
   /** 是否把底部 Iris 进度折叠为单行 */
-  milestoneCollapsed?: boolean;
+  progressCollapsed?: boolean;
   /** 底部 Iris 进度展开列表的滚动偏移 */
-  milestoneScrollOffset?: number;
+  progressScrollOffset?: number;
 }
 
 export function ChatMessageList({
@@ -44,9 +44,9 @@ export function ChatMessageList({
   thoughtsToggleSignal,
   hasActiveTools,
   scrollBoxRef,
-  milestoneSnapshot,
-  milestoneCollapsed,
-  milestoneScrollOffset,
+  progressSnapshot,
+  progressCollapsed,
+  progressScrollOffset,
 }: ChatMessageListProps) {
   const { height: termHeight } = useTerminalDimensions();
 
@@ -108,13 +108,13 @@ export function ChatMessageList({
         );
       })}
 
-      {milestoneSnapshot && milestoneSnapshot.items.length > 0 ? (
+      {progressSnapshot && progressSnapshot.items.length > 0 ? (
         <box flexDirection="column" paddingBottom={1}>
-          <MilestoneListView
-            snapshot={milestoneSnapshot}
+          <ProgressListView
+            snapshot={progressSnapshot}
             standalone
-            collapsed={milestoneCollapsed}
-            scrollOffset={milestoneScrollOffset}
+            collapsed={progressCollapsed}
+            scrollOffset={progressScrollOffset}
             showControls
           />
         </box>

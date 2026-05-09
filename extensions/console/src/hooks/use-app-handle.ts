@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ToolInvocation, UsageMetadata } from 'irises-extension-sdk';
 import type { ChatMessage, MessagePart, NotificationPayload } from '../components/MessageItem';
-import type { MilestoneSnapshotLike } from '../milestone-types';
+import type { ProgressSnapshotLike } from '../progress-types';
 import type { RetryInfo } from '../components/GeneratingTimer';
 import type { MessageMeta, ToolDetailData, ToolDetailBreadcrumb } from '../app-types';
 import {
@@ -17,10 +17,10 @@ export interface AppHandle {
   addMessage(role: 'user' | 'assistant', content: string, meta?: MessageMeta): void;
   addStructuredMessage(role: 'user' | 'assistant', parts: MessagePart[], meta?: MessageMeta): void;
   addErrorMessage(text: string): void;
-  /** 重放历史消息：不触发 live milestone 归档消费，也不清空 redo。 */
+  /** 重放历史消息：不触发 live progress 归档消费，也不清空 redo。 */
   addHistoryMessage(role: 'user' | 'assistant', parts: MessagePart[], meta?: MessageMeta): void;
-  /** 插入/附加一条历史 milestone 归档消息。 */
-  addMilestoneArchive(snapshot: MilestoneSnapshotLike, archivedAt?: number): void;
+  /** 插入/附加一条历史 progress 归档消息。 */
+  addProgressArchive(snapshot: ProgressSnapshotLike, archivedAt?: number): void;
   /** 添加一次性命令消息（如 shell 输出、/file 反馈），下次用户发消息时自动清除 */
   addCommandMessage(text: string, options?: { label?: string; isError?: boolean }): void;
   startStream(): void;
@@ -33,8 +33,8 @@ export interface AppHandle {
   clearMessages(): void;
   /** 更新当前会话 Plan Mode 指示状态 */
   setPlanModeActive(active: boolean): void;
-  /** 更新当前会话 milestone/task 清单快照 */
-  setMilestones(snapshot: MilestoneSnapshotLike | null): void;
+  /** 更新当前会话 progress/task 清单快照 */
+  setProgress(snapshot: ProgressSnapshotLike | null): void;
   setUserTokens(tokenCount: number): void;
   addSummaryMessage(summaryText: string, tokenCount?: number): void;
   commitTools(): void;
@@ -116,8 +116,8 @@ export interface UseAppHandleReturn {
   toolInvocations: ToolInvocation[];
   /** 当前会话是否处于 Plan Mode */
   planModeActive: boolean;
-  /** 当前会话 milestone/task 清单快照 */
-  milestoneSnapshot: MilestoneSnapshotLike | null;
+  /** 当前会话 progress/task 清单快照 */
+  progressSnapshot: ProgressSnapshotLike | null;
   /** 当前后台运行中的异步子代理数量 */
   backgroundTaskCount: number;
   /** 当前后台运行中的委派任务数量（delegate_to_agent），与子代理分开计数 */
@@ -144,9 +144,9 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
   const [pendingApprovals, setPendingApprovals] = useState<ToolInvocation[]>([]);
   const [pendingApplies, setPendingApplies] = useState<ToolInvocation[]>([]);
   const [planModeActive, setPlanModeActive] = useState(false);
-  const [milestoneSnapshot, setMilestoneSnapshot] = useState<MilestoneSnapshotLike | null>(null);
-  const milestoneSnapshotRef = useRef<MilestoneSnapshotLike | null>(null);
-  const archivedMilestoneUpdatedAtRef = useRef<number | null>(null);
+  const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshotLike | null>(null);
+  const progressSnapshotRef = useRef<ProgressSnapshotLike | null>(null);
+  const archivedProgressUpdatedAtRef = useRef<number | null>(null);
   const [toolInvocations, setToolInvocationsState] = useState<ToolInvocation[]>([]);
   const [backgroundTaskCount, setBackgroundTaskCount] = useState(0);
   // [职责分离] 委派任务独立计数，不与异步子代理的 spinner / token 混用
@@ -183,22 +183,22 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
   }, []);
 
   useEffect(() => {
-    const isCompletedMilestoneSnapshot = (snapshot: MilestoneSnapshotLike | null): snapshot is MilestoneSnapshotLike => {
+    const isCompletedProgressSnapshot = (snapshot: ProgressSnapshotLike | null): snapshot is ProgressSnapshotLike => {
       return !!snapshot && snapshot.items.length > 0 && snapshot.stats.open === 0;
     };
 
-    const consumeCompletedMilestoneSnapshot = (): MilestoneSnapshotLike | null => {
-      const snapshot = milestoneSnapshotRef.current;
-      if (!isCompletedMilestoneSnapshot(snapshot)) return null;
-      if (archivedMilestoneUpdatedAtRef.current === snapshot.updatedAt) return null;
-      archivedMilestoneUpdatedAtRef.current = snapshot.updatedAt;
-      milestoneSnapshotRef.current = null;
-      setMilestoneSnapshot(null);
+    const consumeCompletedProgressSnapshot = (): ProgressSnapshotLike | null => {
+      const snapshot = progressSnapshotRef.current;
+      if (!isCompletedProgressSnapshot(snapshot)) return null;
+      if (archivedProgressUpdatedAtRef.current === snapshot.updatedAt) return null;
+      archivedProgressUpdatedAtRef.current = snapshot.updatedAt;
+      progressSnapshotRef.current = null;
+      setProgressSnapshot(null);
       return snapshot;
     };
 
-    const appendMilestoneArchive = (prev: ChatMessage[], snapshot: MilestoneSnapshotLike, archivedAt?: number): ChatMessage[] => {
-      const part: MessagePart = { type: 'milestone_snapshot', snapshot };
+    const appendProgressArchive = (prev: ChatMessage[], snapshot: ProgressSnapshotLike, archivedAt?: number): ChatMessage[] => {
+      const part: MessagePart = { type: 'progress_snapshot', snapshot };
       const last = prev[prev.length - 1];
       if (last?.role === 'assistant' && !last.isError && !last.isCommand && !last.isSummary && !last.isNotificationSummary) {
         const copy = [...prev];
@@ -225,9 +225,9 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
           return;
         }
         // 发送新用户消息时，清除错误消息、命令消息、以及残留的空 assistant 占位消息
-        const completedMilestoneSnapshot = consumeCompletedMilestoneSnapshot();
+        const completedProgressSnapshot = consumeCompletedProgressSnapshot();
         setMessages((prev) => [
-          ...(completedMilestoneSnapshot ? appendMilestoneArchive(prev, completedMilestoneSnapshot) : prev)
+          ...(completedProgressSnapshot ? appendProgressArchive(prev, completedProgressSnapshot) : prev)
             .filter((m) => !m.isError && !m.isCommand && !(m.role === 'assistant' && m.parts.length === 0)),
           { id: nextMsgId(), role, parts: [textPart], createdAt: Date.now(), ...meta },
         ]);
@@ -244,13 +244,13 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
           { id: nextMsgId(), role, parts: normalizedParts, ...meta },
         ]);
       },
-      addMilestoneArchive(snapshot, archivedAt) {
-        archivedMilestoneUpdatedAtRef.current = snapshot.updatedAt;
-        if (milestoneSnapshotRef.current?.updatedAt === snapshot.updatedAt && snapshot.stats.open === 0) {
-          milestoneSnapshotRef.current = null;
-          setMilestoneSnapshot(null);
+      addProgressArchive(snapshot, archivedAt) {
+        archivedProgressUpdatedAtRef.current = snapshot.updatedAt;
+        if (progressSnapshotRef.current?.updatedAt === snapshot.updatedAt && snapshot.stats.open === 0) {
+          progressSnapshotRef.current = null;
+          setProgressSnapshot(null);
         }
-        setMessages((prev) => appendMilestoneArchive(prev, snapshot, archivedAt));
+        setMessages((prev) => appendProgressArchive(prev, snapshot, archivedAt));
       },
       addErrorMessage(text) {
         // 添加错误消息前，先移除可能存在的空 assistant 占位消息
@@ -273,9 +273,9 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
           setMessages((prev) => appendAssistantParts(prev, normalizedParts, meta));
           return;
         }
-        const completedMilestoneSnapshot = consumeCompletedMilestoneSnapshot();
+        const completedProgressSnapshot = consumeCompletedProgressSnapshot();
         setMessages((prev) => [
-          ...(completedMilestoneSnapshot ? appendMilestoneArchive(prev, completedMilestoneSnapshot) : prev)
+          ...(completedProgressSnapshot ? appendProgressArchive(prev, completedProgressSnapshot) : prev)
             .filter((m) => !m.isError && !m.isCommand && !(m.role === 'assistant' && m.parts.length === 0)),
           { id: nextMsgId(), role, parts: normalizedParts, createdAt: Date.now(), ...meta },
         ]);
@@ -420,26 +420,26 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
         setStreamingParts([]);
         streamPartsRef.current = [];
         uncommittedStreamPartsRef.current = [];
-        milestoneSnapshotRef.current = null;
-        archivedMilestoneUpdatedAtRef.current = null;
-        setMilestoneSnapshot(null);
+        progressSnapshotRef.current = null;
+        archivedProgressUpdatedAtRef.current = null;
+        setProgressSnapshot(null);
       },
       setPlanModeActive(active: boolean) {
         setPlanModeActive(active);
       },
-      setMilestones(snapshot: MilestoneSnapshotLike | null) {
+      setProgress(snapshot: ProgressSnapshotLike | null) {
         const next = snapshot && snapshot.items.length > 0 ? snapshot : null;
         if (next && next.stats.open > 0) {
           // 新一轮未完成任务出现后，允许未来完成态再次归档。
-          archivedMilestoneUpdatedAtRef.current = null;
+          archivedProgressUpdatedAtRef.current = null;
         }
-        if (next && next.stats.open === 0 && archivedMilestoneUpdatedAtRef.current === next.updatedAt) {
-          milestoneSnapshotRef.current = null;
-          setMilestoneSnapshot(null);
+        if (next && next.stats.open === 0 && archivedProgressUpdatedAtRef.current === next.updatedAt) {
+          progressSnapshotRef.current = null;
+          setProgressSnapshot(null);
           return;
         }
-        milestoneSnapshotRef.current = next;
-        setMilestoneSnapshot(next);
+        progressSnapshotRef.current = next;
+        setProgressSnapshot(next);
       },
       commitTools,
       setUserTokens(tokenCount: number) {
@@ -592,7 +592,7 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
     pendingApprovals,
     pendingApplies,
     planModeActive,
-    milestoneSnapshot,
+    progressSnapshot,
     toolInvocations,
     backgroundTaskCount,
     delegateTaskCount,

@@ -330,6 +330,7 @@ class SessionMilestoneManager extends EventEmitter {
 var logger = createPluginLogger("milestone");
 var EXTENSION_STATE_KEY = "milestone";
 var MILESTONE_EXTENSION_SERVICE_ID = "milestone:service";
+var CONSOLE_PROGRESS_SERVICE_ID = "console:progress";
 var manager = new SessionMilestoneManager;
 var updateListeners = new Set;
 function emitUpdate(sessionId, snapshot) {
@@ -836,6 +837,21 @@ var milestonePlugin = definePlugin({
       ctx.registerTools(createMilestoneToolsForApi(api));
       wrapExitPlanMode(api, ctx);
       observeToolFailures(api, ctx);
+    });
+    ctx.onPlatformsReady((_platforms, api) => {
+      const service = api.services.get(MILESTONE_EXTENSION_SERVICE_ID);
+      const consoleProgress = api.services.get(CONSOLE_PROGRESS_SERVICE_ID);
+      if (!service || !consoleProgress)
+        return;
+      ctx.trackDisposable(consoleProgress.register({
+        id: "milestone",
+        priority: 100,
+        loadLatest: (sessionId) => service.loadLatest(sessionId),
+        loadHistory: (sessionId) => service.loadArchives(sessionId),
+        loadUiState: (sessionId) => service.loadUiState(sessionId),
+        saveUiState: (sessionId, state) => service.setUiState(sessionId, state),
+        onDidUpdate: (listener) => service.onDidUpdate(listener)
+      }));
     });
   }
 });

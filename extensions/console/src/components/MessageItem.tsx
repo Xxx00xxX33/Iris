@@ -7,11 +7,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTerminalDimensions } from '@opentui/react';
 import type { ToolInvocation } from 'irises-extension-sdk';
-import type { MilestoneSnapshotLike } from '../milestone-types';
+import type { ProgressSnapshotLike } from '../progress-types';
 import { MarkdownText } from './MarkdownText';
 import { GeneratingTimer } from './GeneratingTimer';
 import { ToolCall } from './ToolCall';
-import { MilestoneListView } from './MilestoneListView';
+import { ProgressListView } from './ProgressListView';
 import { C } from '../theme';
 import { ICONS } from '../terminal-compat';
 
@@ -81,7 +81,7 @@ export type MessagePart =
   | { type: 'text'; text: string }
   | { type: 'thought'; text: string; durationMs?: number }
   | { type: 'tool_use'; tools: ToolInvocation[] }
-  | { type: 'milestone_snapshot'; snapshot: MilestoneSnapshotLike }
+  | { type: 'progress_snapshot'; snapshot: ProgressSnapshotLike }
   | { type: 'file'; fileType: 'image' | 'document' | 'audio' | 'video'; fileName: string; mimeType: string };
 
 /** 异步子代理通知的结构化内容 */
@@ -137,7 +137,7 @@ type RenderGroup =
   | { kind: 'text'; part: MessagePart & { type: 'text' }; index: number }
   | { kind: 'thought'; part: MessagePart & { type: 'thought' }; index: number }
   | { kind: 'tools'; tools: ToolInvocation[]; startIndex: number }
-  | { kind: 'milestone_snapshot'; part: MessagePart & { type: 'milestone_snapshot' }; index: number }
+  | { kind: 'progress_snapshot'; part: MessagePart & { type: 'progress_snapshot' }; index: number }
   | { kind: 'file'; part: MessagePart & { type: 'file' }; index: number };
 
 function groupParts(parts: MessagePart[]): RenderGroup[] {
@@ -163,8 +163,8 @@ function groupParts(parts: MessagePart[]): RenderGroup[] {
     } else if (part.type === 'thought') {
       groups.push({ kind: 'thought', part: part as MessagePart & { type: 'thought' }, index: i });
       i++;
-    } else if (part.type === 'milestone_snapshot') {
-      groups.push({ kind: 'milestone_snapshot', part: part as MessagePart & { type: 'milestone_snapshot' }, index: i });
+    } else if (part.type === 'progress_snapshot') {
+      groups.push({ kind: 'progress_snapshot', part: part as MessagePart & { type: 'progress_snapshot' }, index: i });
       i++;
     } else if (part.type === 'file') {
       groups.push({ kind: 'file', part: part as MessagePart & { type: 'file' }, index: i });
@@ -378,10 +378,10 @@ export const MessageItem = React.memo(function MessageItem(
             );
           }
 
-          if (group.kind === 'milestone_snapshot') {
+          if (group.kind === 'progress_snapshot') {
             return (
-              <box key={`milestone-${group.index}`} marginTop={gi > 0 ? 1 : 0}>
-                <MilestoneListView snapshot={group.part.snapshot} standalone />
+              <box key={`progress-${group.index}`} marginTop={gi > 0 ? 1 : 0}>
+                <ProgressListView snapshot={group.part.snapshot} standalone />
               </box>
             );
           }

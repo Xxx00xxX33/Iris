@@ -509,6 +509,9 @@ export function App({
 
   const currentApply = appState.isGenerating ? appState.pendingApplies[0] : undefined;
   const hasMessages = appState.messages.length > 0 || appState.isGenerating;
+  const activeMilestone = appState.milestoneSnapshot?.items.find((item) => item.status === 'in_progress');
+  const milestoneGeneratingLabel = activeMilestone ? `${activeMilestone.activeForm ?? activeMilestone.title}...` : undefined;
+  const effectiveGeneratingLabel = appState.generatingLabel ?? milestoneGeneratingLabel;
 
   if (viewMode === 'settings') {
     return (
@@ -656,11 +659,12 @@ export function App({
           isGenerating={appState.isGenerating}
           retryInfo={appState.retryInfo}
           modelName={modelState.currentModelName}
-          generatingLabel={appState.generatingLabel}
+          generatingLabel={effectiveGeneratingLabel}
           timerPaused={appState.pendingApprovals.length > 0 || appState.pendingApplies.length > 0 || !!askQuestionInvocation}
           thoughtsToggleSignal={thoughtsToggleSignal}
           hasActiveTools={appState.toolInvocations.some(t => t.status === 'executing' || t.status === 'queued')}
           scrollBoxRef={chatScrollBoxRef}
+          milestoneSnapshot={appState.milestoneSnapshot}
         />
       ) : null}
 

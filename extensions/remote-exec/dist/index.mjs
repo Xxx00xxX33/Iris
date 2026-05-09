@@ -7250,6 +7250,19 @@ class SshTransport {
   getTransportMode(alias) {
     return this.getServer(alias).transport ?? "auto";
   }
+  async validateConnection(alias) {
+    const server = this.getServer(alias);
+    try {
+      const conn = await this.acquireConnection(alias, server);
+      if (!this.sshCfg.reuseConnection) {
+        try {
+          conn.client.end();
+        } catch {}
+      }
+    } catch (err) {
+      throw new Error(`remote-exec: 服务器 "${alias}" 连接失败 (${server.user ?? "?"}@${server.hostName}:${server.port}): ${err.message}`);
+    }
+  }
   closeAll() {
     for (const [alias, conn] of this.pool) {
       try {
@@ -7570,6 +7583,7 @@ class SshTransport {
         return existing;
       }
     }
+    const connectCfg = await buildConnectConfig(server, this.sshCfg);
     const client = new Client;
     const conn = {
       client,
@@ -7590,8 +7604,15 @@ class SshTransport {
     };
     if (this.sshCfg.reuseConnection)
       this.pool.set(alias, conn);
-    const connectCfg = await buildConnectConfig(server, this.sshCfg);
-    client.connect(connectCfg);
+    try {
+      client.connect(connectCfg);
+    } catch (err) {
+      this.pool.delete(alias);
+      try {
+        client.destroy?.();
+      } catch {}
+      throw err;
+    }
     try {
       await conn.ready;
     } catch (err) {
@@ -7628,59 +7649,178 @@ class EnvironmentManager {
   api;
   getServers;
   getConfig;
+  validateRemote;
   sessionCache = new Map;
-  constructor(api, getServers, getConfig) {
+  sessionErrors = new Map;
+  listeners = new Set;
+  constructor(api, getServers, getConfig, validateRemote) {
     this.api = api;
     this.getServers = getServers;
     this.getConfig = getConfig;
+    this.validateRemote = validateRemote;
   }
-  getActive() {
-    const sid = this.api.agentManager?.getActiveSessionId?.();
+  onDidChange(listener) {
+    this.listeners.add(listener);
+    return { dispose: () => {
+      this.listeners.delete(listener);
+    } };
+  }
+  emitChange() {
+    for (const listener of [...this.listeners]) {
+      try {
+        listener();
+      } catch {}
+    }
+  }
+  resolveSessionId(sessionId) {
+    return sessionId ?? this.api.agentManager?.getActiveSessionId?.();
+  }
+  isKnownEnvironment(name) {
+    return name === LOCAL_ENV || this.getServers().has(name);
+  }
+  getFallbackEnvironment() {
+    const configured = this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+    return this.isKnownEnvironment(configured) ? configured : LOCAL_ENV;
+  }
+  getActive(sessionId) {
+    const sid = this.resolveSessionId(sessionId);
     if (!sid)
-      return this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+      return this.getFallbackEnvironment();
     const cached = this.sessionCache.get(sid);
     if (cached) {
-      if (cached === LOCAL_ENV || this.getServers().has(cached))
+      if (this.isKnownEnvironment(cached))
         return cached;
-      this.sessionCache.set(sid, LOCAL_ENV);
       return LOCAL_ENV;
     }
-    return this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+    return this.getFallbackEnvironment();
+  }
+  getActiveState(sessionId) {
+    const sid = this.resolveSessionId(sessionId);
+    const name = this.getActive(sid);
+    return {
+      name,
+      isLocal: name === LOCAL_ENV,
+      summary: this.listEnvs().find((env) => env.name === name),
+      error: sid ? this.sessionErrors.get(sid) : undefined
+    };
   }
   async ensureLoaded(sessionId) {
     if (this.sessionCache.has(sessionId))
       return;
+    await this.restoreForSession(sessionId, { validate: true, source: "preload" });
+  }
+  async restoreForSession(sessionId, options = {}) {
+    const previous = this.getActive(sessionId);
+    const fallback = this.getFallbackEnvironment();
+    const validate = options.validate !== false;
+    let stored;
     try {
       const meta = await this.api.storage.getMeta?.(sessionId);
-      const stored = meta?.remoteExecEnvironment;
-      if (stored && (stored === LOCAL_ENV || this.getServers().has(stored))) {
-        this.sessionCache.set(sessionId, stored);
-      }
-    } catch {}
-  }
-  async setActive(name) {
-    const previous = this.getActive();
-    if (name !== LOCAL_ENV && !this.getServers().has(name)) {
-      throw new Error(`未知服务器 "${name}"。可用服务器：${this.listEnvs().map((e) => e.name).join(", ")}`);
+      const raw = meta?.remoteExecEnvironment;
+      stored = typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+    } catch (err) {
+      const message = `读取对话 remote-exec 环境失败：${errorMessage(err)}。当前使用：${fallback}`;
+      this.sessionCache.set(sessionId, fallback);
+      this.sessionErrors.set(sessionId, message);
+      this.emitChange();
+      return { ok: false, sessionId, source: "metadata", previous, current: fallback, message, error: errorMessage(err) };
     }
-    const sid = this.api.agentManager?.getActiveSessionId?.();
-    if (sid) {
-      this.sessionCache.set(sid, name);
+    if (!stored) {
+      this.sessionCache.set(sessionId, fallback);
+      this.sessionErrors.delete(sessionId);
+      this.emitChange();
+      return {
+        ok: true,
+        sessionId,
+        source: "default",
+        previous,
+        current: fallback,
+        message: `该对话没有记录 remote-exec 环境，当前使用：${this.formatEnvironmentLabel(fallback)}`
+      };
+    }
+    if (!this.isKnownEnvironment(stored)) {
+      const message = `对话记录的 remote-exec 环境为 ${stored}，但该服务器不存在。已回退到：${LOCAL_ENV}`;
+      this.sessionCache.set(sessionId, LOCAL_ENV);
+      this.sessionErrors.set(sessionId, message);
+      this.emitChange();
+      return { ok: false, sessionId, source: "metadata", requested: stored, previous, current: LOCAL_ENV, message, error: "unknown-environment" };
+    }
+    if (stored !== LOCAL_ENV && validate) {
       try {
-        const meta = await this.api.storage.getMeta?.(sid);
-        if (meta) {
-          meta.remoteExecEnvironment = name;
-          await this.api.storage.saveMeta?.(meta);
-        }
-      } catch {}
+        await this.validateTarget(stored);
+      } catch (err) {
+        const msg = errorMessage(err);
+        const message = `对话记录的 remote-exec 环境为 ${this.formatEnvironmentLabel(stored)}，但连接失败：${msg}
+已回退到：${LOCAL_ENV}`;
+        this.sessionCache.set(sessionId, LOCAL_ENV);
+        this.sessionErrors.set(sessionId, message);
+        this.emitChange();
+        return { ok: false, sessionId, source: "metadata", requested: stored, previous, current: LOCAL_ENV, message, error: msg };
+      }
     }
-    return { previous, current: name };
+    this.sessionCache.set(sessionId, stored);
+    this.sessionErrors.delete(sessionId);
+    this.emitChange();
+    return {
+      ok: true,
+      sessionId,
+      source: "metadata",
+      requested: stored,
+      previous,
+      current: stored,
+      message: `已从对话元数据恢复 remote-exec 环境：${this.formatEnvironmentLabel(stored)}`
+    };
+  }
+  async setActive(name, options = {}) {
+    const target = name.trim();
+    if (!target)
+      throw new Error("服务器名不能为空");
+    const sid = this.resolveSessionId(options.sessionId);
+    const previous = this.getActive(sid);
+    if (!this.isKnownEnvironment(target)) {
+      throw new Error(`未知服务器 "${target}"。可用服务器：${this.listEnvs().map((e) => e.name).join(", ")}`);
+    }
+    if (target !== LOCAL_ENV && options.validate !== false) {
+      try {
+        await this.validateTarget(target);
+      } catch (err) {
+        throw new Error(`无法切换到服务器 "${target}"：${errorMessage(err)}。当前仍为 "${previous}"。`);
+      }
+    }
+    let persisted = false;
+    let warning;
+    if (sid) {
+      this.sessionCache.set(sid, target);
+      this.sessionErrors.delete(sid);
+      if (options.persist !== false) {
+        try {
+          const meta = await this.api.storage.getMeta?.(sid);
+          if (meta) {
+            if (this.api.storage.saveMeta) {
+              meta.remoteExecEnvironment = target;
+              await this.api.storage.saveMeta(meta);
+              persisted = true;
+            } else {
+              warning = "当前存储后端不支持保存会话元数据，环境仅在本次运行中生效";
+            }
+          } else {
+            warning = `未找到会话元数据，当前环境仅在本次运行中生效 (session=${sid})`;
+          }
+        } catch (err) {
+          warning = `保存 remote-exec 环境到会话元数据失败：${errorMessage(err)}`;
+        }
+      }
+    }
+    this.emitChange();
+    return { previous, current: target, persisted, warning };
   }
   clearSession(sessionId) {
     this.sessionCache.delete(sessionId);
+    this.sessionErrors.delete(sessionId);
+    this.emitChange();
   }
-  getActiveServer() {
-    const name = this.getActive();
+  getActiveServer(sessionId) {
+    const name = this.getActive(sessionId);
     if (name === LOCAL_ENV)
       return null;
     return this.getServers().get(name) ?? null;
@@ -7702,6 +7842,23 @@ class EnvironmentManager {
     }
     return list;
   }
+  async validateTarget(name) {
+    if (name === LOCAL_ENV || !this.validateRemote)
+      return;
+    await this.validateRemote(name);
+  }
+  formatEnvironmentLabel(name) {
+    if (name === LOCAL_ENV)
+      return LOCAL_ENV;
+    const server = this.getServers().get(name);
+    if (!server)
+      return name;
+    const userHost = server.hostName ? `${server.user ?? "?"}@${server.hostName}` : undefined;
+    return userHost ? `${name} (${userHost})` : name;
+  }
+}
+function errorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
 }
 
 // src/tools.ts
@@ -7745,14 +7902,17 @@ function buildSwitchEnvironmentTool(envMgr) {
       const name = args.name?.trim();
       if (!name)
         throw new Error("switch_server: name 不能为空");
-      const { previous, current } = await envMgr.setActive(name);
+      const { previous, current, persisted, warning } = await envMgr.setActive(name, { validate: true, source: "tool" });
       const after = envMgr.listEnvs().find((e) => e.name === current);
       return {
         success: true,
         previous,
         current,
+        validated: current !== "local",
+        persisted,
+        warning,
         environment: after,
-        message: previous === current ? `已经在服务器 "${current}"，未发生变化。` : `已从 "${previous}" 切换到 "${current}"。后续工具调用将自动在此服务器执行。`
+        message: previous === current ? `已经在服务器 "${current}"，未发生变化。${warning ? ` 警告：${warning}` : ""}` : `已从 "${previous}" 切换到 "${current}"。后续工具调用将自动在此服务器执行。${warning ? ` 警告：${warning}` : ""}`
       };
     }
   };
@@ -8531,13 +8691,17 @@ class RemoteBashEndpoint {
 // src/console-display.ts
 var CONSOLE_TOOL_DISPLAY_SERVICE_ID = "console:tool-display";
 var CONSOLE_SLASH_COMMAND_SERVICE_ID = "console:slash-command";
+var CONSOLE_STATUS_SEGMENT_SERVICE_ID = "console:status-segment";
 var displayRegistration;
 var displayRegistering = false;
 var slashRegistrations = [];
 var slashRegistering = false;
+var statusRegistration;
+var statusRegistering = false;
 function registerRemoteExecConsoleIntegration(api, envMgr) {
   registerTransferFilesDisplay(api);
   registerEnvironmentSlashCommands(api, envMgr);
+  registerEnvironmentStatusSegment(api, envMgr);
 }
 function disposeRemoteExecConsoleIntegration() {
   displayRegistration?.dispose();
@@ -8549,6 +8713,11 @@ function disposeRemoteExecConsoleIntegration() {
     } catch {}
   }
   slashRegistering = false;
+  try {
+    statusRegistration?.dispose();
+  } catch {}
+  statusRegistration = undefined;
+  statusRegistering = false;
 }
 function registerTransferFilesDisplay(api) {
   if (displayRegistration || displayRegistering)
@@ -8579,20 +8748,36 @@ function registerEnvironmentSlashCommands(api, envMgr) {
   api.services.waitFor(CONSOLE_SLASH_COMMAND_SERVICE_ID, 5000).then((service) => {
     if (slashRegistrations.length > 0)
       return;
-    const switchTo = async (name) => {
-      const sid = api.agentManager?.getActiveSessionId?.();
+    const switchTo = async (name, sessionId) => {
+      const sid = sessionId ?? api.agentManager?.getActiveSessionId?.();
       if (sid) {
-        const { previous, current } = await envMgr.setActive(name);
-        return {
-          message: previous === current ? `当前已经在服务器：${current}` : `已切换服务器：${previous} → ${current}`,
-          label: "env"
-        };
+        try {
+          const { previous, current, warning } = await envMgr.setActive(name, { sessionId: sid, validate: true, source: "slash" });
+          return {
+            message: previous === current ? `当前已经在服务器：${current}${warning ? `
+警告：${warning}` : ""}` : `已切换服务器：${previous} → ${current}${warning ? `
+警告：${warning}` : ""}`,
+            label: "env"
+          };
+        } catch (err) {
+          return {
+            message: `切换服务器失败：${errorMessage2(err)}
+当前服务器仍为：${envMgr.getActive(sid)}`,
+            isError: true,
+            label: "env"
+          };
+        }
       }
-      const store = api.globalStore.agent(api.agentName ?? "__global__").namespace("remote-exec");
-      const prev = store.get("activeEnvironment") ?? "local";
-      store.set("activeEnvironment", name);
-      const msg = prev === name ? `已将默认服务器设为：${name}（新对话生效）` : `已将默认服务器从 ${prev} 改为：${name}（新对话生效）`;
-      return { message: msg, label: "env" };
+      try {
+        await envMgr.setActive(name, { validate: true, persist: false, source: "slash" });
+        const store = api.globalStore.agent(api.agentName ?? "__global__").namespace("remote-exec");
+        const prev = store.get("activeEnvironment") ?? "local";
+        store.set("activeEnvironment", name);
+        const msg = prev === name ? `已将默认服务器设为：${name}（新对话生效）` : `已将默认服务器从 ${prev} 改为：${name}（新对话生效）`;
+        return { message: msg, label: "env" };
+      } catch (err) {
+        return { message: `设置默认服务器失败：${errorMessage2(err)}`, isError: true, label: "env" };
+      }
     };
     slashRegistrations.push(service.register({
       name: "/env",
@@ -8605,11 +8790,11 @@ function registerEnvironmentSlashCommands(api, envMgr) {
           description: env.isLocal ? "本地执行" : [env.description, env.hostName ? `${env.user ?? "?"}@${env.hostName}` : undefined].filter(Boolean).join(" · ")
         }));
       },
-      async handle({ arg }) {
+      async handle({ arg, sessionId }) {
         const name = arg.trim();
         if (name)
-          return switchTo(name);
-        const current = envMgr.getActive();
+          return switchTo(name, sessionId);
+        const current = envMgr.getActive(sessionId);
         const lines = [
           `当前服务器：${current}`,
           "可用服务器：",
@@ -8624,6 +8809,38 @@ function registerEnvironmentSlashCommands(api, envMgr) {
   }).catch(() => {}).finally(() => {
     slashRegistering = false;
   });
+}
+function registerEnvironmentStatusSegment(api, envMgr) {
+  if (statusRegistration || statusRegistering)
+    return;
+  statusRegistering = true;
+  api.services.waitFor(CONSOLE_STATUS_SEGMENT_SERVICE_ID, 5000).then((service) => {
+    if (statusRegistration)
+      return;
+    statusRegistration = service.register({
+      id: "remote-exec.environment",
+      align: "right",
+      priority: 100,
+      getSnapshot({ sessionId }) {
+        const state = envMgr.getActiveState(sessionId);
+        return {
+          id: "remote-exec.environment",
+          text: `env ${state.name}${state.error ? " ⚠" : ""}`,
+          color: state.error ? "error" : state.isLocal ? "dim" : "warn",
+          align: "right",
+          priority: 100
+        };
+      },
+      onDidChange(listener) {
+        return envMgr.onDidChange(listener);
+      }
+    });
+  }).catch(() => {}).finally(() => {
+    statusRegistering = false;
+  });
+}
+function errorMessage2(err) {
+  return err instanceof Error ? err.message : String(err);
 }
 function formatArgsSummary(args) {
   const first = Array.isArray(args.transfers) && args.transfers.length > 0 ? args.transfers[0] : args;
@@ -10187,6 +10404,7 @@ function installToolWrappers(p) {
 
 // src/index.ts
 var logger = createPluginLogger("remote-exec");
+var REMOTE_EXEC_ENVIRONMENT_SERVICE_ID = "remote-exec:environment";
 var cfg = parseRemoteExecConfig({});
 var servers = new Map;
 var transport;
@@ -10197,6 +10415,7 @@ var cachedCtx;
 var switchToolRegistered = false;
 var transferToolRegistered = false;
 var lastConfigSignature = "";
+var envServiceRegistration;
 var src_default = definePlugin({
   name: "remote-exec",
   version: "0.1.0",
@@ -10256,6 +10475,8 @@ var src_default = definePlugin({
       cachedApi.tools.unregister?.(TRANSFER_FILES_TOOL_NAME);
       transferToolRegistered = false;
     }
+    envServiceRegistration?.dispose();
+    envServiceRegistration = undefined;
     disposeRemoteExecConsoleIntegration();
     envMgr = undefined;
     cachedApi = undefined;
@@ -10280,7 +10501,12 @@ async function reloadAll(ctx, api) {
   servers = readServersSection(ctx, merged);
   lastConfigSignature = makeRemoteExecConfigSignature(merged ?? {});
   rebuildTransport();
-  envMgr = new EnvironmentManager(api, () => servers, () => cfg);
+  envMgr = new EnvironmentManager(api, () => servers, () => cfg, async (name) => {
+    if (!transport)
+      throw new Error("remote-exec: SSH transport 未就绪");
+    await transport.validateConnection(name);
+  });
+  registerRemoteExecEnvironmentService(api);
   reregisterRemoteExecTools(api);
   if (!installer) {
     installer = installToolWrappers({
@@ -10298,6 +10524,40 @@ async function reloadAll(ctx, api) {
   }
   installer.applyToExistingTools();
   logger.info(`remote-exec 就绪 — enabled=${cfg.enabled} servers=[${[...servers.keys()].join(", ")}] ` + `default=${cfg.defaultEnvironment} active=${envMgr.getActive()}`);
+}
+function registerRemoteExecEnvironmentService(api) {
+  if (!envMgr || envServiceRegistration)
+    return;
+  if (api.services.has?.(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID))
+    return;
+  envServiceRegistration = api.services.register(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID, {
+    getActive(sessionId) {
+      const name = envMgr.getActive(sessionId);
+      return {
+        name,
+        isLocal: name === "local",
+        summary: envMgr.listEnvs().find((env) => env.name === name)
+      };
+    },
+    listEnvs() {
+      return envMgr.listEnvs();
+    },
+    setActive(name, options) {
+      return envMgr.setActive(name, options);
+    },
+    restoreForSession(sessionId, options) {
+      return envMgr.restoreForSession(sessionId, options);
+    },
+    clearSession(sessionId) {
+      envMgr.clearSession(sessionId);
+    },
+    onDidChange(listener) {
+      return envMgr.onDidChange(listener);
+    }
+  }, {
+    description: "remote-exec 当前执行环境状态与恢复服务",
+    version: "1.0.0"
+  });
 }
 function rebuildTransport() {
   if (transport)

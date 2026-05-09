@@ -111,7 +111,15 @@ export function BottomPanel({
   const inputDisabled = !!(pendingConfirm || askQuestionInvocation || pendingApprovals.length > 0);
 
   return (
-    <box flexDirection="column" flexShrink={0} paddingX={1} paddingBottom={1} paddingTop={hasMessages ? 1 : 0}>
+    <box
+      flexDirection="column"
+      flexShrink={0}
+      paddingX={1}
+      paddingBottom={1}
+      paddingTop={hasMessages ? 1 : 0}
+      // ChatMessageList 可能在 BottomPanel 之后被 insertBefore 到布局前面；显式提升层级，确保输入栏浮层盖住聊天区。
+      zIndex={10}
+    >
       {pendingConfirm ? (
         <ConfirmBar message={pendingConfirm.message} choice={confirmChoice} />
       ) : askQuestionInvocation && onToolMessage ? (

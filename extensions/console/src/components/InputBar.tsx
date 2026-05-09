@@ -34,6 +34,7 @@ const FILE_TYPE_ICONS: Record<string, string> = {
 
 const SLASH_PANEL_MAX_HEIGHT_RATIO = 0.45;
 const SLASH_PANEL_MIN_VISIBLE_ROWS = 3;
+const SLASH_PANEL_BORDER_ROWS = 2;
 
 interface IndexedSuggestion<T> {
   item: T;
@@ -431,11 +432,14 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
           width="100%"
           bottom={slashPanelBottom}
           zIndex={100}
-          height={visibleArgRows.length}
+          height={visibleArgRows.length + SLASH_PANEL_BORDER_ROWS}
           shouldFill
           flexDirection="column"
           backgroundColor={C.panelBg}
           paddingX={1}
+          border
+          borderStyle="single"
+          borderColor={C.border}
         >
           {[...visibleArgRows].reverse().map(({ item, index }) => {
             const padded = item.value.padEnd(maxArgLen);
@@ -468,11 +472,14 @@ export function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPriori
           width="100%"
           bottom={slashPanelBottom}
           zIndex={100}
-          height={visibleCommandRows.length}
+          height={visibleCommandRows.length + SLASH_PANEL_BORDER_ROWS}
           shouldFill
           flexDirection="column"
           backgroundColor={C.panelBg}
           paddingX={1}
+          border
+          borderStyle="single"
+          borderColor={C.border}
         >
           {[...visibleCommandRows].reverse().map(({ item: cmd, index }) => {
             const padded = cmd.name.padEnd(maxLen);

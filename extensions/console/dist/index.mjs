@@ -3016,6 +3016,7 @@ var FILE_TYPE_ICONS = {
 };
 var SLASH_PANEL_MAX_HEIGHT_RATIO = 0.45;
 var SLASH_PANEL_MIN_VISIBLE_ROWS = 3;
+var SLASH_PANEL_BORDER_ROWS = 2;
 function buildSuggestionWindow(items, selectedIndex, maxRows) {
   if (items.length === 0)
     return [];
@@ -3317,11 +3318,14 @@ function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmi
         width: "100%",
         bottom: slashPanelBottom,
         zIndex: 100,
-        height: visibleArgRows.length,
+        height: visibleArgRows.length + SLASH_PANEL_BORDER_ROWS,
         shouldFill: true,
         flexDirection: "column",
         backgroundColor: C.panelBg,
         paddingX: 1,
+        border: true,
+        borderStyle: "single",
+        borderColor: C.border,
         children: [...visibleArgRows].reverse().map(({ item, index }) => {
           const padded = item.value.padEnd(maxArgLen);
           const isSelected = index === selectedIndex;
@@ -3364,11 +3368,14 @@ function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmi
         width: "100%",
         bottom: slashPanelBottom,
         zIndex: 100,
-        height: visibleCommandRows.length,
+        height: visibleCommandRows.length + SLASH_PANEL_BORDER_ROWS,
         shouldFill: true,
         flexDirection: "column",
         backgroundColor: C.panelBg,
         paddingX: 1,
+        border: true,
+        borderStyle: "single",
+        borderColor: C.border,
         children: [...visibleCommandRows].reverse().map(({ item: cmd, index }) => {
           const padded = cmd.name.padEnd(maxLen);
           const isSelected = index === selectedIndex;
@@ -3769,6 +3776,7 @@ function BottomPanel({
     paddingX: 1,
     paddingBottom: 1,
     paddingTop: hasMessages ? 1 : 0,
+    zIndex: 10,
     children: [
       pendingConfirm ? /* @__PURE__ */ jsxDEV11(ConfirmBar, {
         message: pendingConfirm.message,

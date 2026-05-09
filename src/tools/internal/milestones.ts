@@ -33,7 +33,7 @@ const ITEM_SCHEMA: Record<string, unknown> = {
     status: {
       type: 'string',
       enum: ['pending', 'in_progress', 'completed', 'blocked', 'cancelled'],
-      description: '状态：pending 未开始，in_progress 正在做，completed 已完成，blocked 被阻塞，cancelled 已取消。',
+      description: '状态：pending 待处理/未开始（尚未执行，或暂时回到等待队列），in_progress 正在做，completed 已完成，blocked 被阻塞（需说明原因/依赖，可配合 blockedBy），cancelled 已取消/不再执行。',
     },
     owner: {
       type: 'string',
@@ -198,17 +198,4 @@ export function createMilestoneTools(deps: MilestoneToolDeps): ToolDefinition[] 
     createUpdateMilestonesTool(deps),
     createListMilestonesTool(deps),
   ];
-}
-
-export function buildMilestoneSystemPrompt(): string {
-  return `【Milestone 进度清单】
-
-Iris 支持结构化 milestone/task 进度显示：pending 显示为淡色圆点，in_progress 显示为高亮星标，completed 显示为对勾。进度来自 update_milestones 工具，而不是从普通文本中解析。
-
-使用原则：
-1. 对复杂、多步骤、跨文件、需要验证或用户明确要求跟踪进度的任务，请主动使用 update_milestones 建立并维护清单。
-2. 初始清单应短而可执行，通常 3-8 项；简单单步任务不要强行创建清单。
-3. 开始执行某项前先把它标为 in_progress；完成后立即把它标为 completed；遇到阻塞则标为 blocked 并说明 blockedBy/description。
-4. 多 Agent / sub_agent 并行时不要覆盖其他 Agent 的条目；用 owner 标记负责人，增量更新自己的条目。
-5. 在最终回复前确认 milestone 状态与实际完成情况一致；不要把未验证或部分完成的项标为 completed。并发敏感场景请先 list_milestones 获取 version，再用 expectedVersion 更新。`;
 }

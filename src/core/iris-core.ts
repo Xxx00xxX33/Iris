@@ -46,7 +46,7 @@ import { createManageVariablesTool } from '../tools/internal/manage_variables';
 import { createReadSkillTool } from '../tools/internal/read_skill';
 import { createInvokeSkillTool } from '../tools/internal/invoke_skill';
 import { createAskQuestionFirstTool } from '../tools/internal/ask_question_first';
-import { buildMilestoneSystemPrompt, createMilestoneTools } from '../tools/internal/milestones';
+import { createMilestoneTools } from '../tools/internal/milestones';
 import { DEFAULT_SYSTEM_PROMPT } from '../prompt/templates/default';
 import { Backend } from './backend';
 import { buildMilestonesFromApprovedPlan } from '../plan-mode/milestones';
@@ -333,7 +333,6 @@ export class IrisCore {
     const milestoneManager = options.milestoneManager ?? new SessionMilestoneManager();
     const prompt = new PromptAssembler();
     prompt.setSystemPrompt(config.system.systemPrompt || DEFAULT_SYSTEM_PROMPT);
-    prompt.addSystemPart({ text: buildMilestoneSystemPrompt() });
 
     // ---- 3.9 激活插件 ----
     if (pluginManager) {

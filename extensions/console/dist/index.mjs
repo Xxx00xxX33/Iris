@@ -16,39 +16,30 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = /* @__PURE__ */ createRequire(import.meta.url);
 
-// ../../packages/extension-sdk/dist/logger.js
+// node_modules/irises-extension-sdk/src/logger.ts
 function createExtensionLogger(extensionName, tag) {
   const scope = tag ? `${extensionName}:${tag}` : extensionName;
   return {
     debug: (...args) => {
-      if (_logLevel <= LogLevel.DEBUG)
+      if (_logLevel <= 0 /* DEBUG */)
         console.debug(`[${scope}]`, ...args);
     },
     info: (...args) => {
-      if (_logLevel <= LogLevel.INFO)
+      if (_logLevel <= 1 /* INFO */)
         console.log(`[${scope}]`, ...args);
     },
     warn: (...args) => {
-      if (_logLevel <= LogLevel.WARN)
+      if (_logLevel <= 2 /* WARN */)
         console.warn(`[${scope}]`, ...args);
     },
     error: (...args) => {
-      if (_logLevel <= LogLevel.ERROR)
+      if (_logLevel <= 3 /* ERROR */)
         console.error(`[${scope}]`, ...args);
     }
   };
 }
-var LogLevel, _logLevel;
-var init_logger = __esm(() => {
-  (function(LogLevel2) {
-    LogLevel2[LogLevel2["DEBUG"] = 0] = "DEBUG";
-    LogLevel2[LogLevel2["INFO"] = 1] = "INFO";
-    LogLevel2[LogLevel2["WARN"] = 2] = "WARN";
-    LogLevel2[LogLevel2["ERROR"] = 3] = "ERROR";
-    LogLevel2[LogLevel2["SILENT"] = 4] = "SILENT";
-  })(LogLevel || (LogLevel = {}));
-  _logLevel = LogLevel.INFO;
-});
+var _logLevel = 1 /* INFO */;
+var init_logger = () => {};
 
 // src/terminal-compat.ts
 import { execFileSync } from "child_process";
@@ -631,7 +622,7 @@ var init_remote_wizard = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/framing.js
+// node_modules/irises-extension-sdk/src/ipc/framing.ts
 import { Transform } from "node:stream";
 function encodeFrame(data) {
   const payload = Buffer.from(JSON.stringify(data), "utf-8");
@@ -682,7 +673,7 @@ var init_framing = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/protocol.js
+// node_modules/irises-extension-sdk/src/ipc/protocol.ts
 function isRequest(msg) {
   return "id" in msg && "method" in msg;
 }
@@ -806,7 +797,7 @@ var init_protocol = __esm(() => {
   IPC_TO_BACKEND_EVENT = Object.fromEntries(Object.entries(BACKEND_EVENT_TO_IPC).map(([k, v]) => [v, k]));
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-tool-handle.js
+// node_modules/irises-extension-sdk/src/ipc/remote-tool-handle.ts
 import { EventEmitter } from "node:events";
 var logger, RemoteToolHandle;
 var init_remote_tool_handle = __esm(() => {
@@ -910,7 +901,7 @@ var init_remote_tool_handle = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-backend-handle.js
+// node_modules/irises-extension-sdk/src/ipc/remote-backend-handle.ts
 import { EventEmitter as EventEmitter2 } from "node:events";
 var logger2, RemoteBackendHandle;
 var init_remote_backend_handle = __esm(() => {
@@ -1134,7 +1125,7 @@ var init_remote_backend_handle = __esm(() => {
   };
 });
 
-// ../../packages/extension-sdk/dist/ipc/remote-api-proxy.js
+// node_modules/irises-extension-sdk/src/ipc/remote-api-proxy.ts
 function callApi(client, targetAgentName, method, params) {
   if (!targetAgentName) {
     return client.call(method, params);
@@ -1208,7 +1199,16 @@ var init_remote_api_proxy = __esm(() => {
   logger3 = createExtensionLogger("RemoteApiProxy");
 });
 
-// ../../packages/extension-sdk/dist/ipc/index.js
+// node_modules/irises-extension-sdk/src/ipc/index.ts
+var init_ipc = __esm(() => {
+  init_framing();
+  init_protocol();
+  init_remote_backend_handle();
+  init_remote_tool_handle();
+  init_remote_api_proxy();
+});
+
+// node_modules/irises-extension-sdk/dist/ipc/index.js
 var exports_ipc = {};
 __export(exports_ipc, {
   isResponse: () => isResponse,
@@ -1225,12 +1225,8 @@ __export(exports_ipc, {
   ErrorCodes: () => ErrorCodes,
   BACKEND_EVENT_TO_IPC: () => BACKEND_EVENT_TO_IPC
 });
-var init_ipc = __esm(() => {
-  init_framing();
-  init_protocol();
-  init_remote_backend_handle();
-  init_remote_tool_handle();
-  init_remote_api_proxy();
+var init_ipc2 = __esm(() => {
+  init_ipc();
 });
 
 // src/index.ts
@@ -1238,7 +1234,7 @@ import React13 from "react";
 import { createCliRenderer, capture as opentuiCapture } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 
-// ../../packages/extension-sdk/dist/platform.js
+// node_modules/irises-extension-sdk/src/platform.ts
 class BackendHandle {
   _backend;
   _listeners = new Map;
@@ -1346,12 +1342,6 @@ class BackendHandle {
   getAgentTask(taskId) {
     return this._backend.getAgentTask?.(taskId);
   }
-  getMilestones(sessionId) {
-    return this._backend.getMilestones?.(sessionId);
-  }
-  loadMilestones(sessionId) {
-    return this._backend.loadMilestones?.(sessionId) ?? Promise.resolve(this.getMilestones(sessionId));
-  }
   getToolPolicies() {
     return this._backend.getToolPolicies?.();
   }
@@ -1370,10 +1360,23 @@ class PlatformAdapter {
     return this.constructor.name;
   }
 }
+// node_modules/irises-extension-sdk/src/utils/paths.ts
+function normalizeText(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+function normalizeRelativeFilePath(input, label = "文件路径") {
+  const normalized = input.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!normalized) {
+    throw new Error(`${label}不能为空`);
+  }
+  const parts = normalized.split("/");
+  if (parts.some((part) => !part || part === "." || part === "..")) {
+    throw new Error(`${label}无效: ${input}`);
+  }
+  return parts.join("/");
+}
 
-// ../../packages/extension-sdk/dist/index.js
-init_logger();
-// ../../packages/extension-sdk/dist/utils/dependencies.js
+// node_modules/irises-extension-sdk/src/utils/dependencies.ts
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
 import { createRequire as createRequire2 } from "node:module";
@@ -1510,27 +1513,9 @@ async function ensureExtensionRuntimeDependencies(extensionDir, options = {}) {
     installArgs: args
   };
 }
-// ../../packages/extension-sdk/dist/utils/git.js
+// node_modules/irises-extension-sdk/src/utils/git.ts
 import * as fs2 from "node:fs";
 import * as path2 from "node:path";
-
-// ../../packages/extension-sdk/dist/utils/paths.js
-function normalizeText(value) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-function normalizeRelativeFilePath(input, label = "文件路径") {
-  const normalized = input.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
-  if (!normalized) {
-    throw new Error(`${label}不能为空`);
-  }
-  const parts = normalized.split("/");
-  if (parts.some((part) => !part || part === "." || part === "..")) {
-    throw new Error(`${label}无效: ${input}`);
-  }
-  return parts.join("/");
-}
-
-// ../../packages/extension-sdk/dist/utils/git.js
 var GIT_INSTALL_METADATA_FILE = ".iris-extension-install.json";
 function stripGitPlusProtocol(url) {
   return url.startsWith("git+") ? url.slice("git+".length) : url;
@@ -5646,7 +5631,7 @@ import { useMemo as useMemo6 } from "react";
 import * as fs4 from "fs";
 import * as path4 from "path";
 
-// ../../packages/extension-sdk/dist/tool-utils.js
+// node_modules/irises-extension-sdk/src/tool-utils.ts
 import * as fs3 from "node:fs";
 import * as path3 from "node:path";
 function normalizeLineEndings(text) {
@@ -7779,11 +7764,25 @@ function fitLine(text, width) {
   }
   return `${out}${" ".repeat(Math.max(0, targetWidth - used))}`;
 }
-function sessionLine(meta, selected) {
-  const time = new Date(meta.updatedAt ?? 0).toLocaleString("zh-CN");
-  const marker = selected ? `${ICONS.selectorArrow} ` : "  ";
-  return `${marker}${meta.title}  ${meta.cwd}  ${time}`;
+function formatTitle(title) {
+  if (!title || !title.trim())
+    return "(无标题)";
+  return title.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 }
+function formatTime2(timestamp) {
+  if (!timestamp)
+    return "";
+  return new Date(timestamp).toLocaleString("zh-CN");
+}
+function buildSeparator(totalWidth) {
+  const sepChar = BORDER_CHARS.horizontal;
+  const charW = getTextWidth(sepChar);
+  const indent = 3;
+  const usable = Math.max(1, totalWidth - indent - 3);
+  const count = Math.max(1, Math.floor(usable / charW));
+  return `${" ".repeat(indent)}${sepChar.repeat(count)}`;
+}
+var ROWS_PER_ITEM = 3;
 function SessionListView({ sessions, selectedIndex, pendingDeleteId, statusMessage, statusIsError }) {
   const { height: terminalHeight, width: terminalWidth } = useTerminalDimensions6();
   const rowWidth = Math.max(20, terminalWidth || 80);
@@ -7791,39 +7790,61 @@ function SessionListView({ sessions, selectedIndex, pendingDeleteId, statusMessa
   const reservedRows = 4 + (statusMessage ? 1 : 0);
   const bodyRows = Math.max(4, terminalHeight - reservedRows);
   const pendingDeleteExtraRows = pendingDeleteId ? 1 : 0;
-  const reserveIndicatorRows = sessions.length > Math.max(1, bodyRows - pendingDeleteExtraRows) ? 2 : 0;
-  const visibleItemCount = Math.max(1, bodyRows - pendingDeleteExtraRows - reserveIndicatorRows);
-  const startIndex = sessions.length <= visibleItemCount ? 0 : clamp(safeSelectedIndex - visibleItemCount + 1, 0, sessions.length - visibleItemCount);
+  let availRows = bodyRows - pendingDeleteExtraRows;
+  let maxItems = Math.max(1, Math.floor((availRows + 1) / ROWS_PER_ITEM));
+  if (maxItems < sessions.length) {
+    availRows -= 2;
+    maxItems = Math.max(1, Math.floor((availRows + 1) / ROWS_PER_ITEM));
+  }
+  const visibleItemCount = Math.min(sessions.length, maxItems);
+  const startIndex = sessions.length <= visibleItemCount ? 0 : clamp(safeSelectedIndex - Math.floor(visibleItemCount / 2), 0, sessions.length - visibleItemCount);
   const endIndex = Math.min(sessions.length, startIndex + visibleItemCount);
   const visibleSessions = sessions.slice(startIndex, endIndex);
   const hasAbove = startIndex > 0;
   const hasBelow = endIndex < sessions.length;
+  const sepLine = buildSeparator(rowWidth);
   const rows = [];
   if (sessions.length === 0) {
-    rows.push({ key: "empty", text: "暂无历史对话", color: C.dim });
+    rows.push({ key: "empty", text: "  暂无历史对话", color: C.dim });
   } else {
     if (hasAbove) {
-      rows.push({ key: "above", text: `↑ 还有 ${startIndex} 条更早/更近的历史`, color: C.dim });
+      rows.push({ key: "above", text: `  ${ICONS.arrowUp} 还有 ${startIndex} 条`, color: C.dim });
     }
     visibleSessions.forEach((meta, localIndex) => {
       const index = startIndex + localIndex;
       const isSelected = index === safeSelectedIndex;
+      const title = formatTitle(meta.title);
+      const time = formatTime2(meta.updatedAt);
+      const marker = isSelected ? `${ICONS.selectorArrow} ` : "  ";
       rows.push({
-        key: meta.id,
-        text: sessionLine(meta, isSelected),
+        key: `${meta.id}:title`,
+        text: `${marker}${title}`,
         color: isSelected ? C.text : C.textSec,
         bold: isSelected
+      });
+      const infoLine = meta.cwd ? `   ${meta.cwd}  ${time}` : `   ${time}`;
+      rows.push({
+        key: `${meta.id}:info`,
+        text: infoLine,
+        color: C.dim
       });
       if (meta.id === pendingDeleteId) {
         rows.push({
           key: `${meta.id}:delete`,
-          text: "    再次按 D 将删除该历史对话；Esc 或切换选择取消。",
+          text: "   再次按 D 将删除该历史对话；Esc 或切换选择取消。",
           color: C.error
+        });
+      }
+      if (localIndex < visibleSessions.length - 1) {
+        rows.push({
+          key: `${meta.id}:sep`,
+          text: sepLine,
+          color: C.dim
         });
       }
     });
     if (hasBelow) {
-      rows.push({ key: "below", text: `↓ 还有 ${sessions.length - endIndex} 条历史`, color: C.dim });
+      rows.push({ key: "below", text: `  ${ICONS.arrowDown} 还有 ${sessions.length - endIndex} 条`, color: C.dim });
     }
   }
   while (rows.length < bodyRows) {
@@ -13274,7 +13295,7 @@ class ConsolePlatform extends PlatformAdapter {
     return next;
   }
   async start() {
-    this.api?.setLogLevel?.(LogLevel.SILENT);
+    this.api?.setLogLevel?.(4 /* SILENT */);
     configureBundledOpenTuiTreeSitter(this.isCompiledBinary);
     this.onBackend("assistant:content", (sid, content) => {
       if (sid === this.sessionId) {
@@ -13702,7 +13723,7 @@ ${summaryText}`;
       if (!WsIPCClient) {
         throw new Error("remote-connect 扩展服务不可用，请确认 remote-connect 扩展已安装并启用");
       }
-      const { RemoteBackendHandle: RemoteBackendHandle2, createRemoteApiProxy: createRemoteApiProxy2 } = await Promise.resolve().then(() => (init_ipc(), exports_ipc));
+      const { RemoteBackendHandle: RemoteBackendHandle2, createRemoteApiProxy: createRemoteApiProxy2 } = await Promise.resolve().then(() => (init_ipc2(), exports_ipc));
       const wsClient = new WsIPCClient;
       const handshake = await wsClient.connect(url, token);
       let remoteBackend;
@@ -14819,8 +14840,8 @@ ${summaryText}`;
         try {
           const fullPath = path6.join(dirPath, name);
           const stat = fs6.statSync(fullPath);
-          const isDirectory2 = stat.isDirectory();
-          if (isDirectory2) {
+          const isDirectory = stat.isDirectory();
+          if (isDirectory) {
             entries.push({ name, isDirectory: true });
           } else {
             const ext = path6.extname(name).toLowerCase();

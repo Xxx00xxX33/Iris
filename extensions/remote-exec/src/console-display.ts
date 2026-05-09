@@ -192,18 +192,18 @@ function errorMessage(err: unknown): string {
 
 
 function formatArgsSummary(args: Record<string, unknown>): string {
-  const first = Array.isArray(args.transfers) && args.transfers.length > 0 ? args.transfers[0] : args;
+  const transfers = Array.isArray(args.transfers) ? args.transfers : [];
+  const first = transfers[0];
   if (!first || typeof first !== 'object' || Array.isArray(first)) {
-    return Array.isArray(args.transfers) ? `${args.transfers.length} transfers` : '';
+    return transfers.length ? `${transfers.length} transfers` : '';
   }
-
 
   const obj = first as Record<string, unknown>;
   const from = `${String(obj.fromEnvironment || '')}:${String(obj.fromPath || '')}`;
   const to = `${String(obj.toEnvironment || '')}:${String(obj.toPath || '')}`;
   const summary = `${from} → ${to}`;
   const clipped = summary.length > 60 ? `${summary.slice(0, 60)}…` : summary;
-  return Array.isArray(args.transfers) && args.transfers.length > 1 ? `${clipped} +${args.transfers.length - 1}` : clipped;
+  return transfers.length > 1 ? `${clipped} +${transfers.length - 1}` : clipped;
 }
 
 function formatProgress(progress: Record<string, unknown> | undefined): string | undefined {

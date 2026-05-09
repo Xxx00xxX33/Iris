@@ -7966,26 +7966,25 @@ function buildTransferFilesTool(envMgr, getTransport) {
         properties: {
           transfers: {
             type: "array",
-            description: "批量传输任务数组。若提供 transfers，则忽略单条快捷字段。",
+            description: "传输任务数组。必须使用数组形式；每项描述一次传输。",
             items: {
               type: "object",
               properties: transferProperties(envNames),
               required: ["fromEnvironment", "fromPath", "toEnvironment", "toPath"]
             }
           },
-          ...transferProperties(envNames),
           verify: {
             type: "string",
-            enum: ["none", "size"],
-            description: "校验模式。none=不校验；size=比较源/目标文件大小（默认）。目录逐文件校验。"
+            description: "校验模式。可选值：none | size。none=不校验；size=比较源/目标文件大小（默认）。目录逐文件校验。"
           }
-        }
+        },
+        required: ["transfers"]
       }
     },
     handler: async (args, context) => {
       const items = normalizeTransfers(args);
       if (items.length === 0) {
-        throw new Error("transfer_files: 请提供 transfers 数组，或提供 fromEnvironment/fromPath/toEnvironment/toPath 单条参数。");
+        throw new Error("transfer_files: 请提供 transfers 数组，且每项包含 fromEnvironment/fromPath/toEnvironment/toPath。");
       }
       const verify = args.verify === "none" ? "none" : "size";
       const results = [];
@@ -8019,7 +8018,6 @@ function transferProperties(envNames) {
   return {
     fromEnvironment: {
       type: "string",
-      enum: envNames,
       description: `源服务器。可选值：${envNames.join(" | ")}`
     },
     fromPath: {
@@ -8028,7 +8026,6 @@ function transferProperties(envNames) {
     },
     toEnvironment: {
       type: "string",
-      enum: envNames,
       description: `目标服务器。可选值：${envNames.join(" | ")}`
     },
     toPath: {
@@ -8037,8 +8034,7 @@ function transferProperties(envNames) {
     },
     type: {
       type: "string",
-      enum: ["auto", "file", "directory"],
-      description: "传输类型。auto 会根据 fromPath 尾部斜杠和源路径 stat 自动判断。默认 auto。"
+      description: "传输类型。可选值：auto | file | directory。auto 会根据 fromPath 尾部斜杠和源路径 stat 自动判断。默认 auto。"
     },
     overwrite: {
       type: "boolean",
@@ -8051,7 +8047,7 @@ function transferProperties(envNames) {
   };
 }
 function normalizeTransfers(args) {
-  const rawList = Array.isArray(args.transfers) && args.transfers.length > 0 ? args.transfers : [args];
+  const rawList = Array.isArray(args.transfers) ? args.transfers : [];
   const out = [];
   for (const raw of rawList) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw))
@@ -8843,16 +8839,17 @@ function errorMessage2(err) {
   return err instanceof Error ? err.message : String(err);
 }
 function formatArgsSummary(args) {
-  const first = Array.isArray(args.transfers) && args.transfers.length > 0 ? args.transfers[0] : args;
+  const transfers = Array.isArray(args.transfers) ? args.transfers : [];
+  const first = transfers[0];
   if (!first || typeof first !== "object" || Array.isArray(first)) {
-    return Array.isArray(args.transfers) ? `${args.transfers.length} transfers` : "";
+    return transfers.length ? `${transfers.length} transfers` : "";
   }
   const obj = first;
   const from = `${String(obj.fromEnvironment || "")}:${String(obj.fromPath || "")}`;
   const to = `${String(obj.toEnvironment || "")}:${String(obj.toPath || "")}`;
   const summary = `${from} → ${to}`;
   const clipped = summary.length > 60 ? `${summary.slice(0, 60)}…` : summary;
-  return Array.isArray(args.transfers) && args.transfers.length > 1 ? `${clipped} +${args.transfers.length - 1}` : clipped;
+  return transfers.length > 1 ? `${clipped} +${transfers.length - 1}` : clipped;
 }
 function formatProgress(progress) {
   if (progress?.kind !== "transfer_files")

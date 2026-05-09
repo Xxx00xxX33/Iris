@@ -52,6 +52,12 @@ export interface ToolExecutionContext {
   reportProgress?: (data: Record<string, unknown>) => void;
   /** 中止信号 */
   signal?: AbortSignal;
+  /** 当前工具调用所属 sessionId（可用于扩展工具做会话级状态更新） */
+  sessionId?: string;
+  /** 当前执行上下文的 Agent 标识；子代理内部可能是 `${agent}:subtask` 形式 */
+  sourceAgent?: string;
+  /** 当前工具的 invocation ID（handler 可用于关联） */
+  invocationId?: string;
 }
 
 export type ToolHandler = (args: Record<string, unknown>, context?: ToolExecutionContext) => Promise<unknown> | AsyncIterable<unknown>;

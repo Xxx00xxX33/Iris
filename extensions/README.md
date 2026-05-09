@@ -20,6 +20,7 @@
 ## 仓库内示例
 
 - `extensions/cron/`：定时任务调度插件（Cron / Interval / Once 三种调度模式），当前随发行包内嵌。
+- `extensions/milestone/`：结构化里程碑 / Iris 进度插件，注册 `update_milestones` 与 `list_milestones` 工具，当前随发行包内嵌。
 - `extensions/console/`：交互式终端（TUI）平台 extension，当前随发行包内嵌。
 - `extensions/web/`：Web GUI 管理平台 extension，支持聊天、配置管理、一键部署、终端等功能，当前随发行包内嵌。
 - `extensions/telegram/`：Telegram 平台 extension，当前随发行包内嵌。
@@ -37,7 +38,7 @@
 
 ## embedded.json
 
-`extensions/embedded.json` 是发行包内嵌 extension 的白名单。只有这个文件里列出的 extension，才会在 `script/build.ts` 中被预先打包，并复制进最终产物的 `extensions/` 目录。当前内嵌的是 `cron`、`web`、`console` 和 `telegram`；`lark`、`discord`、`qq`、`wxwork`、`weixin`、`computer-use` 和 `memory` 不在白名单内，属于可选 extension。
+`extensions/embedded.json` 是发行包内嵌 extension 的白名单。只有这个文件里列出的 extension，才会在 `script/build.ts` 中被预先打包，并复制进最终产物的 `extensions/` 目录。当前内嵌的是 `multimodal`、`mcp`、`memory`、`milestone`、`web`、`console` 和 `remote-exec`；其余 extension 不在白名单内，属于可选 extension。
 
 ## 加载来源（4 类，按发现优先级降序）
 

@@ -1,0 +1,14 @@
+{
+  "name": "milestone",
+  "version": "0.1.0",
+  "description": "结构化里程碑 / Iris 进度工具与联动",
+  "plugin": {
+    "entry": "dist/index.mjs"
+  },
+  "distribution": {
+    "files": [
+      "dist/index.mjs",
+      "package.json"
+    ]
+  }
+}

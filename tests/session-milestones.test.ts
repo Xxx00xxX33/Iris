@@ -1,7 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SessionMilestoneManager } from '../src/core/session-milestones.js';
 import { CrossAgentTaskBoard } from '../src/core/cross-agent-task-board.js';
-import { createUpdateMilestonesTool, createListMilestonesTool } from '../src/tools/internal/milestones.js';
+import { createMilestoneToolsForApi } from '../extensions/milestone/src/index.js';
+
+function createMilestoneTools(input: {
+  manager: SessionMilestoneManager;
+  sessionId: string;
+  agentName?: string;
+  taskBoard?: CrossAgentTaskBoard;
+}) {
+  const api = {
+    milestones: input.manager,
+    backend: {
+      getActiveSessionId: () => input.sessionId,
+      on: () => api.backend,
+      off: () => api.backend,
+    },
+    agentName: input.agentName,
+    taskBoard: input.taskBoard,
+    config: { tools: { permissions: {} } },
+  } as any;
+  const [updateTool, listTool] = createMilestoneToolsForApi(api);
+  return { updateTool, listTool };
+}
 
 describe('SessionMilestoneManager', () => {
   it('支持 replaceAll 初始化并计算统计', () => {
@@ -179,13 +200,11 @@ describe('SessionMilestoneManager', () => {
 describe('milestone tools', () => {
   it('update_milestones 和 list_milestones 使用当前 session', async () => {
     const manager = new SessionMilestoneManager();
-    const deps = {
+    const { updateTool, listTool } = createMilestoneTools({
       manager,
-      getSessionId: () => 's-tool',
-      getAgentName: () => 'agent-a',
-    };
-    const updateTool = createUpdateMilestonesTool(deps);
-    const listTool = createListMilestonesTool(deps);
+      sessionId: 's-tool',
+      agentName: 'agent-a',
+    });
 
     const result = await updateTool.handler({
       replaceAll: true,
@@ -218,11 +237,11 @@ describe('milestone tools', () => {
       description: '委派测试',
     });
 
-    const updateTool = createUpdateMilestonesTool({
+    const { updateTool } = createMilestoneTools({
       manager,
       taskBoard,
-      getSessionId: () => `cross-agent:master:${taskId}`,
-      getAgentName: () => 'worker',
+      sessionId: `cross-agent:master:${taskId}`,
+      agentName: 'worker',
     });
 
     const result = await updateTool.handler({

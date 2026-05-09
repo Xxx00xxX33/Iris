@@ -42,7 +42,7 @@ import { createLogger } from '../../logger';
 import { sanitizeHistory } from '../history-sanitizer';
 import { estimateTokenCount } from 'tokenx';
 import { extractText, isTextPart, isInlineDataPart } from '../../types';
-import type { Content, Part, UsageMetadata, ToolInvocation } from '../../types';
+import type { Content, Part, UsageMetadata } from '../../types';
 import { summarizeHistory } from '../summarizer';
 import { resetConfigToDefaults as doResetConfigToDefaults } from '../../config/index';
 import { MessageQueue } from '../message-queue';
@@ -299,7 +299,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
     this.taskBoardCleanup?.();
 
     this.taskBoard = board;
-    this.milestones.setTaskBoard(board);
 
     // 转发 board 生命周期事件为 agent:notification。
     // 注意：board 事件名与 task.status 不完全对应（registered→running），
@@ -378,7 +377,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
     this.taskBoardCleanup = undefined;
     this.taskBoard = undefined;
     this.milestones.dispose();
-    this.milestones.setTaskBoard(undefined);
   }
 
   /**
@@ -1452,9 +1450,6 @@ export class Backend extends TypedEventEmitter<BackendEvents> {
       const sid = handle.getSnapshot().sessionId;
       if (!sid) return;
       this.emit('tool:execute', sid, handle);
-    });
-    this.toolState.on('completed', (invocation: ToolInvocation) => {
-      this.milestones.syncOnToolCompletion(invocation);
     });
   }
 

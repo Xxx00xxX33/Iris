@@ -21,7 +21,7 @@ import type {
   PlatformFactory,
   StorageFactory,
 } from './types.js';
-import type { ServiceRegistryLike } from './service.js';
+import type { Disposable, ServiceRegistryLike } from './service.js';
 import type { AudioInput, VideoInput } from '../media.js';
 import type { ImageInput, DocumentInput } from '../platform.js';
 import type { ConfigContributionRegistryLike } from './config-contribution.js';
@@ -139,6 +139,8 @@ export interface PluginContext {
   wrapTool(toolName: string, wrapper: ToolWrapper): void;
   addSystemPromptPart(part: Part): void;
   removeSystemPromptPart(part: Part): void;
+  /** 跟踪需要在插件停用时释放的资源。 */
+  trackDisposable(disposable: Disposable | undefined | null): void;
   onReady(callback: (api: IrisAPI) => void | Promise<void>): void;
   onPlatformsReady(callback: (platforms: ReadonlyMap<string, PlatformAdapter>, api: IrisAPI) => void | Promise<void>): void;
   getConfig(): Readonly<Record<string, unknown>>;

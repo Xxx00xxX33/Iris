@@ -20,7 +20,7 @@ import { coerceToolArgs, getToolArgsArrayValidationError } from './coerce-args';
 import type { ToolParameterSchema } from './coerce-args';
 import { validateToolArgs } from './validate-args';
 import { FunctionCallPart, FunctionResponsePart, InlineDataPart, TERMINAL_TOOL_STATUSES } from '../types';
-import { createLogger } from '../logger';
+import { agentContext, createLogger } from '../logger';
 import type { ToolAttachment, ToolExecutionContext } from '../types';
 import { ToolPolicyConfig, ToolsConfig } from '../config';
 import type { BeforeToolExecInterceptor, AfterToolExecInterceptor } from '../extension';
@@ -688,6 +688,8 @@ async function executeSingle(
     const executionContext: ToolExecutionContext = {
       reportProgress: progressCtx?.reportProgress,
       signal: effectiveSignal,
+      sessionId: toolState && invocationId ? toolState.get(invocationId)?.sessionId : undefined,
+      sourceAgent: agentContext.getStore() === 'main' ? undefined : agentContext.getStore(),
       approvedByUser: userExplicitlyApproved || undefined,
       // requestApproval: handler 执行过程中可调用此方法请求 Y/N 弹窗确认。
       // 仅在可交互上下文（Console 前台会话）中提供。

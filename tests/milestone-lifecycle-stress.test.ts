@@ -4,7 +4,7 @@ import { SessionMilestoneManager } from '../src/core/session-milestones.js';
 import { StorageProvider, type SessionMeta } from '../src/storage/base.js';
 import { ToolRegistry } from '../src/tools/registry.js';
 import { ToolStateManager } from '../src/tools/state.js';
-import { createMilestoneTools } from '../src/tools/internal/milestones.js';
+import { createMilestoneToolsForApi } from '../extensions/milestone/src/index.js';
 import { PromptAssembler } from '../src/prompt/assembler.js';
 import type { Content, LLMRequest, Part } from '../src/types/index.js';
 
@@ -200,11 +200,17 @@ describe('Milestone lifecycle stress', () => {
       toolsConfig: { permissions: {} },
     });
     backend.on('error', () => {});
-    tools.registerAll(createMilestoneTools({
-      manager: milestoneManager,
-      getSessionId: () => backend.getActiveSessionId(),
-      getAgentName: () => 'master',
-    }));
+    const api = {
+      milestones: milestoneManager,
+      backend: {
+        getActiveSessionId: () => backend.getActiveSessionId(),
+        on: () => api.backend,
+        off: () => api.backend,
+      },
+      agentName: 'master',
+      config: { tools: { permissions: {} } },
+    } as any;
+    tools.registerAll(createMilestoneToolsForApi(api));
 
     milestoneManager.update('stress-session', Array.from({ length: LONG_TASK_STEPS }, (_, index) => ({
       id: `m${index + 1}`,

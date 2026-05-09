@@ -85,6 +85,8 @@ export interface AgentTaskInfoLike {
 
 export type MilestoneStatusLike = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
 
+export const MILESTONE_SERVICE_ID = 'iris:milestones';
+
 export interface MilestoneItemLike {
   id: string;
   title: string;
@@ -99,6 +101,37 @@ export interface MilestoneItemLike {
   createdAt: number;
   updatedAt: number;
   updatedBy?: string;
+}
+
+export interface MilestoneUpdateInputLike {
+  id?: unknown;
+  title?: unknown;
+  subject?: unknown;
+  content?: unknown;
+  description?: unknown;
+  activeForm?: unknown;
+  status?: unknown;
+  owner?: unknown;
+  blockedBy?: unknown;
+  blocks?: unknown;
+  metadata?: unknown;
+  expectedVersion?: unknown;
+  force?: unknown;
+  delete?: unknown;
+}
+
+export interface MilestoneUpdateOptionsLike {
+  sourceAgent?: string;
+  routeAgent?: string;
+  replaceAll?: boolean;
+}
+
+export interface ToolFailureMilestoneInputLike {
+  toolId: string;
+  toolName: string;
+  error: string;
+  sourceAgent?: string;
+  routeAgent?: string;
 }
 
 export interface MilestoneSnapshotLike {
@@ -130,6 +163,13 @@ export interface MilestoneUiStateLike {
   expanded: boolean;
   updatedAt: number;
   snapshotUpdatedAt?: number;
+}
+
+export interface MilestoneServiceLike {
+  update(sessionId: string, updates: MilestoneUpdateInputLike[], options?: MilestoneUpdateOptionsLike): MilestoneSnapshotLike;
+  getSnapshot(sessionId: string, sourceAgent?: string): MilestoneSnapshotLike;
+  clear?(sessionId: string, sourceAgent?: string, routeAgent?: string): MilestoneSnapshotLike;
+  noteActiveToolFailure?(sessionId: string, input: ToolFailureMilestoneInputLike): MilestoneSnapshotLike | undefined;
 }
 
 /** Backend 事件签名（供 SDK 消费者使用，核心类型用 unknown 代替以保持解耦） */

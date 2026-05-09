@@ -46,10 +46,8 @@ import { createManageVariablesTool } from '../tools/internal/manage_variables';
 import { createReadSkillTool } from '../tools/internal/read_skill';
 import { createInvokeSkillTool } from '../tools/internal/invoke_skill';
 import { createAskQuestionFirstTool } from '../tools/internal/ask_question_first';
-import { createMilestoneTools } from '../tools/internal/milestones';
 import { DEFAULT_SYSTEM_PROMPT } from '../prompt/templates/default';
 import { Backend } from './backend';
-import { buildMilestonesFromApprovedPlan } from '../plan-mode/milestones';
 import type { StorageProvider } from '../storage/base';
 import {
   DeliveryRegistry,
@@ -72,8 +70,8 @@ import { PluginEventBus } from '../extension/event-bus';
 import { patchMethod, patchPrototype } from '../extension/patch';
 import { registerExtensionPlatforms } from '../extension';
 import { ensureDevSourceSdkShims } from '../extension';
-import type { IrisAPI, InlinePluginEntry, WebPanelDefinition, ConsoleSettingsTabDefinition, Disposable } from 'irises-extension-sdk';
-import { BackendHandle, DELIVERY_REGISTRY_SERVICE_ID } from 'irises-extension-sdk';
+import type { IrisAPI, InlinePluginEntry, WebPanelDefinition, ConsoleSettingsTabDefinition, Disposable, MilestoneServiceLike } from 'irises-extension-sdk';
+import { BackendHandle, DELIVERY_REGISTRY_SERVICE_ID, MILESTONE_SERVICE_ID } from 'irises-extension-sdk';
 import { readEditableConfig, updateEditableConfig, LayeredConfigManager } from '../config/manage';
 import { applyRuntimeConfigReload, type RuntimeConfigReloadContext } from '../config/runtime';
 import { DEFAULTS, parseLLMConfig } from '../config/llm';
@@ -96,7 +94,6 @@ import { supportsVision as checkVision, supportsNativePDF as checkNativePDF, sup
 import { setExtensionLogLevel } from 'irises-extension-sdk';
 import { planModePlugin } from '../plan-mode/plugin';
 import { SessionMilestoneManager } from './session-milestones';
-import { getActiveSessionId } from './backend/session-context';
 
 
 // ── 类型 ──
@@ -283,10 +280,6 @@ export class IrisCore {
     // ---- 3. 注册工具 ----
     const tools = new ToolRegistry();
     setToolLimits(config.tools.limits);
-    // Milestone 工具只更新会话级 UI 状态，不修改业务文件或外部系统。
-    // 运行时默认放行，避免模型每次更新进度都触发人工审批。
-    config.tools.permissions.update_milestones ??= { autoApprove: true };
-    config.tools.permissions.list_milestones ??= { autoApprove: true };
 
     const isWindows = process.platform === 'win32';
     const commandToolName = isWindows ? 'shell' : 'bash';
@@ -340,32 +333,6 @@ export class IrisCore {
         { tools, modes: modeRegistry, prompt, router },
         config,
       );
-    }
-
-    // Plan Mode 批准后，把 Markdown 计划同步为 session milestone 初始清单。
-    // 这里包装内置 ExitPlanMode 工具，避免插件层耦合核心 milestone manager。
-    const exitPlanTool = tools.get('ExitPlanMode');
-    if (exitPlanTool) {
-      const originalExitPlanHandler = exitPlanTool.handler;
-      exitPlanTool.handler = async (args, context) => {
-        const result = await originalExitPlanHandler(args, context);
-        try {
-          const record = result && typeof result === 'object' ? result as Record<string, unknown> : undefined;
-          const approvedPlan = typeof record?.approvedPlan === 'string' ? record.approvedPlan : undefined;
-          const planFilePath = typeof record?.planFilePath === 'string' ? record.planFilePath : undefined;
-          if (record?.approved === true && approvedPlan) {
-            const sessionId = getActiveSessionId();
-            const agentName = options.agentName ?? 'master';
-            if (sessionId) {
-              const items = buildMilestonesFromApprovedPlan(approvedPlan, { owner: agentName, planFilePath });
-              milestoneManager.update(sessionId, items, { sourceAgent: agentName, routeAgent: agentName, replaceAll: true });
-            }
-          }
-        } catch (err) {
-          logger.warn('Plan Mode milestone 同步失败:', err);
-        }
-        return result;
-      };
     }
 
     // ---- 5. 创建 Backend ----
@@ -429,16 +396,6 @@ export class IrisCore {
 
     // 注册交互式澄清/选项询问工具
     tools.register(createAskQuestionFirstTool());
-
-    // 注册会话级 milestone 进度清单工具。
-    // 放在 backend 创建之后，以便工具能读取当前 active session；子代理/跨 Agent 场景
-    // 通过 sessionContext 和 owner 字段保持各自更新不互相覆盖。
-    tools.registerAll(createMilestoneTools({
-      manager: milestoneManager,
-      taskBoard,
-      getSessionId: () => backend.getActiveSessionId(),
-      getAgentName: () => options.agentName ?? 'master',
-    }));
 
     // 注册历史搜索工具
     tools.register(createHistorySearchTool({
@@ -504,6 +461,19 @@ export class IrisCore {
     // 将插件钩子注入 Backend
     const eventBus = new PluginEventBus();
     const serviceRegistry = pluginManager.getServiceRegistry();
+    const milestoneService: MilestoneServiceLike = {
+      update: (sessionId, updates, updateOptions) => milestoneManager.update(sessionId, updates as any, updateOptions),
+      getSnapshot: (sessionId, sourceAgent) => milestoneManager.getSnapshot(sessionId, sourceAgent),
+      clear: (sessionId, sourceAgent, routeAgent) => milestoneManager.clear(sessionId, sourceAgent, routeAgent),
+      noteActiveToolFailure: (sessionId, input) => milestoneManager.noteActiveToolFailure(sessionId, input),
+    };
+
+    if (!serviceRegistry.has(MILESTONE_SERVICE_ID)) {
+      serviceRegistry.register(MILESTONE_SERVICE_ID, milestoneService, {
+        description: 'Structured milestone/task progress service',
+        version: '1.0.0',
+      });
+    }
 
     // 路由延迟注册（平台无关）
     const registerRoute = (method: string, path: string, handler: (req: any, res: any, params: Record<string, string>) => Promise<void>): Disposable => {
@@ -768,6 +738,7 @@ export class IrisCore {
       pluginManager,
       eventBus,
       services: serviceRegistry,
+      milestones: milestoneService,
       configContributions: pluginManager.getConfigContributionRegistry(),
       globalStore: pluginManager.getGlobalStore(),
       taskBoard,

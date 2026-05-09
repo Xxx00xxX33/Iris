@@ -1,14 +1,12 @@
 /**
  * BackendMilestoneCoordinator
  *
- * 把 Backend 中与 milestone 相关的运行态协调、持久化归档、UI 状态和工具错误同步
- * 收敛到独立组件，避免 Backend 直接承载 milestone 的领域细节。
+ * 只保留 Core 必须提供的 milestone 基础服务：运行态桥接、持久化归档与 UI 状态。
+ * 工具注册、计划同步、工具失败联动等专属逻辑由 milestone extension 承载。
  */
 
-import type { ToolInvocation } from '../../types';
 import type { StorageProvider, SessionMeta } from '../../storage/base';
-import { agentContext, createLogger } from '../../logger';
-import type { CrossAgentTaskBoard } from '../cross-agent-task-board';
+import { createLogger } from '../../logger';
 import type {
   SessionMilestoneManager,
   MilestoneArchiveEntry,
@@ -17,14 +15,6 @@ import type {
 } from '../session-milestones';
 
 const logger = createLogger('BackendMilestones');
-
-const MILESTONE_TOOL_SYNC_IGNORED = new Set([
-  'update_milestones', 'list_milestones',
-  'EnterPlanMode', 'ExitPlanMode', 'read_plan', 'write_plan',
-  'AskQuestionFirst',
-]);
-
-const CROSS_AGENT_SESSION_RE = /^cross-agent:[^:]+:(.+)$/;
 
 type EnqueueMetaUpdate = <T>(sessionId: string, fn: () => Promise<T>) => Promise<T>;
 
@@ -38,13 +28,8 @@ export class BackendMilestoneCoordinator {
   private manager?: SessionMilestoneManager;
   private cleanup?: () => void;
   private routeAgent?: string;
-  private taskBoard?: CrossAgentTaskBoard;
 
   constructor(private readonly options: BackendMilestoneCoordinatorOptions) {}
-
-  setTaskBoard(board: CrossAgentTaskBoard | undefined): void {
-    this.taskBoard = board;
-  }
 
   dispose(): void {
     this.cleanup?.();
@@ -150,23 +135,6 @@ export class BackendMilestoneCoordinator {
     }
   }
 
-  syncOnToolCompletion(invocation: ToolInvocation): void {
-    if (!this.manager || !invocation.sessionId) return;
-    if (MILESTONE_TOOL_SYNC_IGNORED.has(invocation.toolName)) return;
-    if (invocation.parentToolId || (invocation.depth ?? 0) > 0) return;
-    if (invocation.status !== 'error') return;
-
-    const ctx = this.resolveContextFromToolSession(invocation.sessionId);
-    // 工具错误不等于 milestone 被阻塞：一次命令失败/路径错误通常仍是“正在处理”。
-    // 只记录错误，blocked 由 Agent/用户显式设置。
-    this.manager.noteActiveToolFailure(ctx.sessionId, {
-      toolId: invocation.id,
-      toolName: invocation.toolName,
-      error: invocation.error ?? '未知错误',
-      sourceAgent: ctx.sourceAgent,
-      routeAgent: ctx.routeAgent,
-    });
-  }
 
   private isArchivable(snapshot: MilestoneSnapshot | undefined): boolean {
     return !!snapshot && snapshot.items.length > 0 && snapshot.stats.open === 0;
@@ -276,24 +244,4 @@ export class BackendMilestoneCoordinator {
     });
   }
 
-  private resolveOwner(): string | undefined {
-    const base = this.routeAgent;
-    const current = agentContext.getStore();
-    if (current && current !== 'main') {
-      return base ? `${base}:${current}` : current;
-    }
-    return base;
-  }
-
-  private resolveContextFromToolSession(sessionId: string): { sessionId: string; sourceAgent?: string; routeAgent?: string } {
-    const owner = this.resolveOwner();
-    const match = CROSS_AGENT_SESSION_RE.exec(sessionId);
-    if (match && this.taskBoard) {
-      const task = this.taskBoard.get(match[1]);
-      if (task?.type === 'delegate') {
-        return { sessionId: task.sourceSessionId, sourceAgent: owner, routeAgent: task.sourceAgent };
-      }
-    }
-    return { sessionId, sourceAgent: owner, routeAgent: this.routeAgent };
-  }
 }

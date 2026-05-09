@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMilestonesFromApprovedPlan, extractPlanMilestoneCandidates } from '../src/plan-mode/milestones.js';
+import { buildMilestonesFromApprovedPlan, extractPlanMilestoneCandidates } from '../extensions/milestone/src/index.js';
 
 describe('Plan Mode milestone extraction', () => {
   it('优先从编号实施步骤生成 milestone', () => {

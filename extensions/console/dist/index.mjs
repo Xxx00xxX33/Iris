@@ -3001,7 +3001,7 @@ var FILE_TYPE_ICONS = {
 function isPlanModeToggleShortcut(key) {
   return key.shift && key.name === "tab" || key.name === "backtab" || key.name === "shift-tab" || key.sequence === "\x1B[Z";
 }
-function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmit, onCycleThinkingEffort, pendingFiles, onRemoveFile, isRemote, dynamicCommands = [], supportsHeadlessTransition }) {
+function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmit, onCycleThinkingEffort, pendingFiles, onRemoveFile, isRemote, dynamicCommands = [], supportsHeadlessTransition, thinkingControlEnabled }) {
   const [inputState, inputActions] = useTextInput("");
   const [selectedIndex, setSelectedIndex] = useState4(0);
   const [queuePromptFrame, setQueuePromptFrame] = useState4(0);
@@ -3171,7 +3171,7 @@ function InputBar({ disabled, isGenerating, queueSize, onSubmit, onPrioritySubmi
       setSelectedIndex(0);
       return;
     }
-    if (key.shift && (key.name === "left" || key.name === "right")) {
+    if (thinkingControlEnabled !== false && key.shift && (key.name === "left" || key.name === "right")) {
       onCycleThinkingEffort(key.name === "right" ? 1 : -1);
       return;
     }
@@ -3571,21 +3571,17 @@ function StatusBar({ agentName, modeName, modelName, contextTokens, contextWindo
 // src/components/ThinkingIndicator.tsx
 init_terminal_compat();
 import { jsxDEV as jsxDEV10 } from "@opentui/react/jsx-dev-runtime";
-var BLOCK_COUNT = 4;
-var FILL_MAP = {
-  none: 0,
-  low: 1,
-  medium: 2,
-  high: 3,
-  max: 4
-};
 var FILLED_CHAR = ICONS.thinkingFilled;
 var DIM_CHAR = ICONS.thinkingDim;
-function ThinkingIndicator({ level, showHint, isRemote }) {
-  const filled = FILL_MAP[level];
-  const isDisabled = level === "none";
+function ThinkingIndicator({ level, providerLevels, showHint, isRemote, thinkingControlEnabled }) {
+  if (thinkingControlEnabled === false)
+    return null;
+  const blockCount = Math.max(1, providerLevels.length - 1);
+  const idx = providerLevels.indexOf(level);
+  const filled = idx >= 0 ? idx : 0;
+  const isNotSet = level === "not-set";
   const blocks = [];
-  for (let i = 0;i < BLOCK_COUNT; i++) {
+  for (let i = 0;i < blockCount; i++) {
     const isFilled = i < filled;
     blocks.push(/* @__PURE__ */ jsxDEV10("span", {
       fg: isFilled ? C.accent : C.dim,
@@ -3601,10 +3597,10 @@ function ThinkingIndicator({ level, showHint, isRemote }) {
           children: [
             blocks,
             /* @__PURE__ */ jsxDEV10("span", {
-              fg: isDisabled ? C.dim : C.accent,
+              fg: isNotSet ? C.dim : C.accent,
               children: [
                 " ",
-                isDisabled ? "thinking off" : level
+                isNotSet ? "not set" : level
               ]
             }, undefined, true, undefined, this)
           ]
@@ -3658,6 +3654,8 @@ function BottomPanel({
   backgroundTaskSpinnerFrame,
   thinkingEffort,
   onCycleThinkingEffort,
+  thinkingControlEnabled,
+  providerLevels,
   remoteHost,
   isRemote,
   pendingFiles,
@@ -3700,8 +3698,10 @@ function BottomPanel({
         children: [
           /* @__PURE__ */ jsxDEV11(ThinkingIndicator, {
             level: thinkingEffort,
+            providerLevels,
             showHint: !hasMessages,
-            isRemote
+            isRemote,
+            thinkingControlEnabled
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsxDEV11(InputBar, {
             disabled: inputDisabled,
@@ -3714,7 +3714,8 @@ function BottomPanel({
             onRemoveFile,
             isRemote,
             dynamicCommands,
-            supportsHeadlessTransition
+            supportsHeadlessTransition,
+            thinkingControlEnabled
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsxDEV11(StatusBar, {
             agentName,
@@ -12070,10 +12071,12 @@ function useMessageQueue() {
 
 // src/hooks/use-model-state.ts
 import { useCallback as useCallback10, useState as useState14 } from "react";
-function useModelState({ modelId, modelName, contextWindow }) {
+function useModelState({ modelId, modelName, contextWindow, modelProvider, thinkingControlEnabled }) {
   const [currentModelId, setCurrentModelId] = useState14(modelId);
   const [currentModelName, setCurrentModelName] = useState14(modelName);
   const [currentContextWindow, setCurrentContextWindow] = useState14(contextWindow);
+  const [currentModelProvider, setCurrentModelProvider] = useState14(modelProvider);
+  const [currentThinkingControlEnabled, setCurrentThinkingControlEnabled] = useState14(thinkingControlEnabled);
   const updateModel = useCallback10((result) => {
     if (result.modelId)
       setCurrentModelId(result.modelId);
@@ -12081,17 +12084,35 @@ function useModelState({ modelId, modelName, contextWindow }) {
       setCurrentModelName(result.modelName);
     if ("contextWindow" in result)
       setCurrentContextWindow(result.contextWindow);
+    if (result.modelProvider)
+      setCurrentModelProvider(result.modelProvider);
+    if ("thinkingControlEnabled" in result)
+      setCurrentThinkingControlEnabled(result.thinkingControlEnabled);
   }, []);
   return {
     currentModelId,
     currentModelName,
     currentContextWindow,
+    currentModelProvider,
+    currentThinkingControlEnabled,
     updateModel
   };
 }
 
 // src/App.tsx
 import { jsxDEV as jsxDEV43 } from "@opentui/react/jsx-dev-runtime";
+var PROVIDER_LEVELS = {
+  claude: ["not-set", "none", "low", "medium", "high", "xhigh", "max"],
+  gemini: ["not-set", "minimal", "low", "medium", "high"],
+  "openai-compatible": ["not-set", "none", "minimal", "low", "medium", "high", "xhigh"],
+  "openai-responses": ["not-set", "none", "minimal", "low", "medium", "high", "xhigh"]
+};
+var DEFAULT_LEVELS = ["not-set", "low", "medium", "high"];
+function getProviderThinkingLevels(provider) {
+  if (!provider)
+    return DEFAULT_LEVELS;
+  return PROVIDER_LEVELS[provider] ?? DEFAULT_LEVELS;
+}
 function App({
   onReady,
   onSubmit,
@@ -12152,6 +12173,8 @@ function App({
   onRemoteConnect,
   onRemoteDisconnect,
   remoteHost,
+  modelProvider,
+  thinkingControlEnabled,
   initWarningsColor,
   initWarningsIcon
 }) {
@@ -12168,7 +12191,9 @@ function App({
   const [copyMode, setCopyMode] = useState15(false);
   const [pendingConfirm, setPendingConfirm] = useState15(null);
   const [confirmChoice, setConfirmChoice] = useState15("confirm");
-  const [thinkingEffort, setThinkingEffort] = useState15("none");
+  const initialLevels = getProviderThinkingLevels(modelProvider);
+  const initialMaxLevel = initialLevels[initialLevels.length - 1];
+  const [thinkingEffort, setThinkingEffort] = useState15(thinkingControlEnabled === false ? "not-set" : initialMaxLevel);
   const [thoughtsToggleSignal, setThoughtsToggleSignal] = useState15(0);
   const [modelStatusMessage, setModelStatusMessage] = useState15(null);
   const [modelStatusIsError, setModelStatusIsError] = useState15(false);
@@ -12248,7 +12273,7 @@ function App({
   const appState = useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendingFilesRef, openFileBrowserRef, fileBrowserCallbackRef });
   const approval = useApproval(appState.pendingApprovals, appState.pendingApplies);
   const exitConfirm = useExitConfirm();
-  const modelState = useModelState({ modelId, modelName, contextWindow });
+  const modelState = useModelState({ modelId, modelName, contextWindow, modelProvider, thinkingControlEnabled });
   const queueAwareSubmit = useCallback11((text) => {
     if (appState.isGenerating) {
       messageQueue.enqueue(text);
@@ -12261,17 +12286,37 @@ function App({
     onAbort();
   }, [messageQueue, onAbort]);
   const cycleThinkingEffort = useCallback11((direction) => {
-    const levels = ["none", "low", "medium", "high", "max"];
+    if (modelState.currentThinkingControlEnabled === false)
+      return;
+    const levels = getProviderThinkingLevels(modelState.currentModelProvider);
     setThinkingEffort((prev) => {
       const idx = levels.indexOf(prev);
-      const next = idx + direction;
+      const safeIdx = idx >= 0 ? idx : 0;
+      const next = safeIdx + direction;
       if (next < 0 || next >= levels.length)
         return prev;
       const newLevel = levels[next];
       onThinkingEffortChange?.(newLevel);
       return newLevel;
     });
-  }, [onThinkingEffortChange]);
+  }, [onThinkingEffortChange, modelState.currentModelProvider, modelState.currentThinkingControlEnabled]);
+  useEffect12(() => {
+    if (modelState.currentThinkingControlEnabled === false)
+      return;
+    const levels = getProviderThinkingLevels(modelState.currentModelProvider);
+    setThinkingEffort((prev) => {
+      if (levels.includes(prev))
+        return prev;
+      const maxLevel = levels[levels.length - 1];
+      onThinkingEffortChange?.(maxLevel);
+      return maxLevel;
+    });
+  }, [modelState.currentModelProvider, modelState.currentThinkingControlEnabled]);
+  useEffect12(() => {
+    if (thinkingControlEnabled !== false && initialMaxLevel !== "not-set") {
+      onThinkingEffortChange?.(initialMaxLevel);
+    }
+  }, []);
   const handleFileAttach = useCallback11((filePath) => {
     onFileAttach?.(filePath);
   }, [onFileAttach]);
@@ -12656,6 +12701,8 @@ function App({
         backgroundTaskSpinnerFrame: appState.backgroundTaskSpinnerFrame,
         thinkingEffort,
         onCycleThinkingEffort: cycleThinkingEffort,
+        thinkingControlEnabled: modelState.currentThinkingControlEnabled,
+        providerLevels: getProviderThinkingLevels(modelState.currentModelProvider),
         remoteHost,
         isRemote: !!remoteHost,
         pendingFiles,
@@ -13169,6 +13216,61 @@ function printHeadlessTransitionMessage() {
 `);
   } catch {}
 }
+var GEMINI_LEVEL_MAP = {
+  minimal: "THINKING_LEVEL_MINIMAL",
+  low: "THINKING_LEVEL_LOW",
+  medium: "THINKING_LEVEL_MEDIUM",
+  high: "THINKING_LEVEL_HIGH"
+};
+function buildThinkingPatch(provider, level) {
+  switch (provider) {
+    case "claude": {
+      if (level === "none") {
+        return {
+          thinking: { type: "disabled" }
+        };
+      }
+      return {
+        thinking: { type: "adaptive" },
+        output_config: { effort: level }
+      };
+    }
+    case "gemini":
+      return {
+        generationConfig: {
+          thinkingConfig: {
+            includeThoughts: true,
+            thinkingLevel: GEMINI_LEVEL_MAP[level] ?? "THINKING_LEVEL_MEDIUM"
+          }
+        }
+      };
+    case "openai-compatible":
+      return { reasoning_effort: level };
+    case "openai-responses":
+      return {
+        reasoning: { effort: level, summary: "auto" }
+      };
+    default:
+      return null;
+  }
+}
+function getThinkingRemovePaths(provider) {
+  switch (provider) {
+    case "claude":
+      return ["thinking.type", "output_config.effort"];
+    case "gemini":
+      return [
+        "generationConfig.thinkingConfig.includeThoughts",
+        "generationConfig.thinkingConfig.thinkingLevel"
+      ];
+    case "openai-compatible":
+      return ["reasoning_effort"];
+    case "openai-responses":
+      return ["reasoning.effort", "reasoning.summary"];
+    default:
+      return [];
+  }
+}
 
 class ConsolePlatform extends PlatformAdapter {
   sessionId;
@@ -13193,7 +13295,8 @@ class ConsolePlatform extends PlatformAdapter {
   consoleConfig;
   supportsHeadlessTransition;
   currentToolIds = new Set;
-  currentThinkingEffort = "none";
+  currentThinkingEffort = "not-set";
+  modelProvider = "gemini";
   _toolDetailStack = [];
   historyMutationQueue = Promise.resolve();
   originalBackend = null;
@@ -13218,6 +13321,7 @@ class ConsolePlatform extends PlatformAdapter {
     this.modelName = options.modelName;
     this.contextWindow = options.contextWindow;
     this.agentName = options.agentName;
+    this.modelProvider = options.modelProvider ?? "gemini";
     this.initWarnings = options.initWarnings ?? [];
     this.api = options.api;
     this.isCompiledBinary = options.isCompiledBinary ?? false;
@@ -13620,6 +13724,8 @@ ${summaryText}`;
         remoteHost: this._remoteHost || undefined,
         onThinkingEffortChange: (level) => this.applyThinkingEffort(level),
         agentName: this.agentName,
+        modelProvider: this.modelProvider,
+        thinkingControlEnabled: this.getThinkingControlEnabled(),
         modeName: this.modeName,
         modelId: this.modelId,
         modelName: this.modelName,
@@ -13696,6 +13802,8 @@ ${summaryText}`;
         this.modelName = modelInfo.modelName;
         this.modelId = modelInfo.modelId;
         this.contextWindow = modelInfo.contextWindow;
+        if (modelInfo.provider)
+          this.modelProvider = modelInfo.provider;
       }
       this.sessionId = generateSessionId();
       this.currentToolIds.clear();
@@ -13766,6 +13874,8 @@ ${summaryText}`;
         this.modelName = modelInfo.modelName ?? this.modelName;
         this.modelId = modelInfo.modelId ?? this.modelId;
         this.contextWindow = modelInfo.contextWindow ?? this.contextWindow;
+        if (modelInfo.provider)
+          this.modelProvider = modelInfo.provider;
       }
       this.sessionId = generateSessionId();
       this.currentToolIds.clear();
@@ -13928,6 +14038,8 @@ ${summaryText}`;
       this.modelName = modelInfo.modelName ?? this.modelName;
       this.modelId = modelInfo.modelId ?? this.modelId;
       this.contextWindow = modelInfo.contextWindow ?? this.contextWindow;
+      if (modelInfo.provider)
+        this.modelProvider = modelInfo.provider;
     }
     this.sessionId = generateSessionId();
     this.currentToolIds.clear();
@@ -14092,15 +14204,24 @@ ${summaryText}`;
       this.modelName = info.modelName;
       this.modelId = info.modelId;
       this.contextWindow = info.contextWindow;
-      if (this.currentThinkingEffort !== "none") {
+      const currentInfo = this.backend.getCurrentModelInfo?.();
+      if (this.currentThinkingEffort !== "not-set") {
+        this.removeThinkingRuntimePatch();
+      }
+      if (currentInfo?.provider)
+        this.modelProvider = currentInfo.provider;
+      if (this.currentThinkingEffort !== "not-set") {
         this.applyThinkingEffort(this.currentThinkingEffort);
       }
+      const thinkingControlEnabled = currentInfo?.thinkingControl !== false;
       return {
         ok: true,
         message: `当前模型已切换为：${info.modelName}  ${info.modelId}`,
         modelName: info.modelName,
         modelId: info.modelId,
-        contextWindow: info.contextWindow
+        contextWindow: info.contextWindow,
+        modelProvider: this.modelProvider,
+        thinkingControlEnabled
       };
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
@@ -14112,14 +14233,42 @@ ${summaryText}`;
     const router = this.api?.router;
     if (!router)
       return;
-    if (level === "none") {
-      router.removeCurrentModelRequestBodyKeys?.("thinking", "output_config");
-    } else {
-      router.patchCurrentModelRequestBody?.({
-        thinking: { type: "enabled", budget_tokens: 1e4 },
-        output_config: { effort: level }
-      });
+    const config = router.getModelConfig?.();
+    if (config?.thinkingControl === false)
+      return;
+    const provider = this.modelProvider;
+    this.removeThinkingRuntimePatch();
+    if (level === "not-set") {} else {
+      const patch = buildThinkingPatch(provider, level);
+      if (patch) {
+        router.patchCurrentModelRequestBody?.(patch);
+      }
     }
+  }
+  removeThinkingRuntimePatch() {
+    const router = this.api?.router;
+    if (!router)
+      return;
+    const paths = getThinkingRemovePaths(this.modelProvider);
+    if (paths.length === 0)
+      return;
+    const topLevelKeys = paths.filter((p) => !p.includes("."));
+    const nestedPaths = paths.filter((p) => p.includes("."));
+    if (topLevelKeys.length > 0) {
+      router.removeCurrentModelRequestBodyKeys?.(...topLevelKeys);
+    }
+    if (nestedPaths.length > 0) {
+      router.removeCurrentModelRequestBodyPaths?.(...nestedPaths);
+    }
+  }
+  getThinkingControlEnabled() {
+    try {
+      const router = this.api?.router;
+      const config = router?.getModelConfig?.();
+      if (config?.thinkingControl === false)
+        return false;
+    } catch {}
+    return true;
   }
   async handleLoadSession(id) {
     this.sessionId = id;
@@ -14961,6 +15110,7 @@ async function consoleFactory(rawContext) {
     modeName: context.config?.system?.defaultMode ?? "default",
     modelName: currentModel.modelName ?? "default",
     modelId: currentModel.modelId ?? "",
+    modelProvider: currentModel.provider,
     contextWindow: currentModel.contextWindow,
     configDir: context.configDir ?? "",
     agentName: context.agentName,

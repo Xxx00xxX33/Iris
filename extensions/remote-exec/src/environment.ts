@@ -6,7 +6,7 @@
  * 状态作用域：按对话（session）隔离。
  * 通过 SessionMeta.remoteExecEnvironment 持久化，与对话历史天然一致。
  *
- * 暴露 EnvironmentManager 给 wrap.ts 和 switch_server 工具调用。
+ * 暴露 EnvironmentManager 给 wrap.ts、switch_server 工具和 Console 集成调用。
  */
 
 import type { IrisAPI } from 'irises-extension-sdk';
@@ -23,35 +23,112 @@ export interface EnvSummary {
   workdir?: string;
 }
 
+export interface EnvironmentSwitchOptions {
+  /** 显式指定 sessionId；Console /env 不在 turn 上下文内，必须传入 */
+  sessionId?: string;
+  /** 切换到远端前是否验证 SSH 连接/认证，默认 true */
+  validate?: boolean;
+  /** 是否写入 SessionMeta.remoteExecEnvironment，默认 true */
+  persist?: boolean;
+  source?: 'tool' | 'slash' | 'session-load' | 'preload';
+}
+
+export interface EnvironmentSwitchResult {
+  previous: string;
+  current: string;
+  persisted: boolean;
+  warning?: string;
+}
+
+export interface EnvironmentRestoreResult {
+  ok: boolean;
+  sessionId: string;
+  source: 'metadata' | 'default' | 'cache';
+  requested?: string;
+  previous: string;
+  current: string;
+  message: string;
+  error?: string;
+}
+
+export interface EnvironmentState {
+  name: string;
+  isLocal: boolean;
+  summary?: EnvSummary;
+  error?: string;
+}
+
+type EnvironmentValidator = (name: string) => Promise<void>;
+type EnvironmentChangeListener = () => void;
+
 export class EnvironmentManager {
   /** per-session 内存缓存：避免每次工具调用都读存储 */
   private sessionCache = new Map<string, string>();
+  /** per-session 最近一次恢复/切换错误；用于状态栏显示 ⚠ */
+  private sessionErrors = new Map<string, string>();
+  private listeners = new Set<EnvironmentChangeListener>();
 
   constructor(
     private api: IrisAPI,
     private getServers: () => Map<string, ServerEntry>,
     private getConfig: () => RemoteExecConfig,
+    private validateRemote?: EnvironmentValidator,
   ) {}
 
-  /** 
+  /** 订阅环境变化（Console 状态栏使用） */
+  onDidChange(listener: EnvironmentChangeListener): { dispose(): void } {
+    this.listeners.add(listener);
+    return { dispose: () => { this.listeners.delete(listener); } };
+  }
+
+  private emitChange(): void {
+    for (const listener of [...this.listeners]) {
+      try { listener(); } catch { /* ignore */ }
+    }
+  }
+
+  private resolveSessionId(sessionId?: string): string | undefined {
+    return sessionId ?? this.api.agentManager?.getActiveSessionId?.();
+  }
+
+  private isKnownEnvironment(name: string): boolean {
+    return name === LOCAL_ENV || this.getServers().has(name);
+  }
+
+  private getFallbackEnvironment(): string {
+    const configured = this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+    return this.isKnownEnvironment(configured) ? configured : LOCAL_ENV;
+  }
+
+  /**
    * 获取当前会话的服务器（同步）。
-   * 调用前需确保 onBeforeLLMCall hook 已调用 ensureLoaded() 预加载。
+   *
+   * 工具执行时可不传 sessionId（走 AsyncLocalStorage active session）；
+   * Console UI 命令/状态栏必须显式传入当前 Console sessionId。
    */
-  getActive(): string {
-    const sid = this.api.agentManager?.getActiveSessionId?.();
-    if (!sid) return this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+  getActive(sessionId?: string): string {
+    const sid = this.resolveSessionId(sessionId);
+    if (!sid) return this.getFallbackEnvironment();
 
     const cached = this.sessionCache.get(sid);
     if (cached) {
-      // 验证服务器仍存在（可能被用户从配置中删除）
-      if (cached === LOCAL_ENV || this.getServers().has(cached)) return cached;
-      // 服务器已被删除，自动回退
-      this.sessionCache.set(sid, LOCAL_ENV);
+      // 只返回仍存在的环境；配置热重载删除服务器时同步回退到 local。
+      if (this.isKnownEnvironment(cached)) return cached;
       return LOCAL_ENV;
     }
 
-    // 缓存未命中：不应该发生（onBeforeLLMCall 会预加载），兜底用 default
-    return this.getConfig().defaultEnvironment ?? LOCAL_ENV;
+    return this.getFallbackEnvironment();
+  }
+
+  getActiveState(sessionId?: string): EnvironmentState {
+    const sid = this.resolveSessionId(sessionId);
+    const name = this.getActive(sid);
+    return {
+      name,
+      isLocal: name === LOCAL_ENV,
+      summary: this.listEnvs().find((env) => env.name === name),
+      error: sid ? this.sessionErrors.get(sid) : undefined,
+    };
   }
 
   /**
@@ -60,55 +137,147 @@ export class EnvironmentManager {
    */
   async ensureLoaded(sessionId: string): Promise<void> {
     if (this.sessionCache.has(sessionId)) return;
-
-    try {
-      const meta = await this.api.storage.getMeta?.(sessionId);
-      const stored = (meta as any)?.remoteExecEnvironment as string | undefined;
-      if (stored && (stored === LOCAL_ENV || this.getServers().has(stored))) {
-        this.sessionCache.set(sessionId, stored);
-      }
-    } catch {
-      // 读取失败，留空（getActive 会走 fallback）
-    }
+    await this.restoreForSession(sessionId, { validate: true, source: 'preload' });
   }
 
   /**
-   * 切换活动服务器（写入 session meta，立即持久化）。
-   * switch_server 工具和 /env 命令调用。
+   * 从会话元数据恢复环境。
+   * Console /load 会调用该方法并把 result.message 作为临时命令消息展示给用户。
    */
-  async setActive(name: string): Promise<{ previous: string; current: string }> {
-    const previous = this.getActive();
+  async restoreForSession(
+    sessionId: string,
+    options: { validate?: boolean; source?: 'session-load' | 'preload' } = {},
+  ): Promise<EnvironmentRestoreResult> {
+    const previous = this.getActive(sessionId);
+    const fallback = this.getFallbackEnvironment();
+    const validate = options.validate !== false;
 
-    if (name !== LOCAL_ENV && !this.getServers().has(name)) {
-      throw new Error(`未知服务器 "${name}"。可用服务器：${this.listEnvs().map(e => e.name).join(', ')}`);
+    let stored: string | undefined;
+    try {
+      const meta = await this.api.storage.getMeta?.(sessionId);
+      const raw = (meta as any)?.remoteExecEnvironment;
+      stored = typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+    } catch (err) {
+      const message = `读取对话 remote-exec 环境失败：${errorMessage(err)}。当前使用：${fallback}`;
+      this.sessionCache.set(sessionId, fallback);
+      this.sessionErrors.set(sessionId, message);
+      this.emitChange();
+      return { ok: false, sessionId, source: 'metadata', previous, current: fallback, message, error: errorMessage(err) };
     }
 
-    const sid = this.api.agentManager?.getActiveSessionId?.();
-    if (sid) {
-      this.sessionCache.set(sid, name);
-      // 持久化到 session meta（无 debounce，立即写入）
+    if (!stored) {
+      this.sessionCache.set(sessionId, fallback);
+      this.sessionErrors.delete(sessionId);
+      this.emitChange();
+      return {
+        ok: true,
+        sessionId,
+        source: 'default',
+        previous,
+        current: fallback,
+        message: `该对话没有记录 remote-exec 环境，当前使用：${this.formatEnvironmentLabel(fallback)}`,
+      };
+    }
+
+    if (!this.isKnownEnvironment(stored)) {
+      const message = `对话记录的 remote-exec 环境为 ${stored}，但该服务器不存在。已回退到：${LOCAL_ENV}`;
+      this.sessionCache.set(sessionId, LOCAL_ENV);
+      this.sessionErrors.set(sessionId, message);
+      this.emitChange();
+      return { ok: false, sessionId, source: 'metadata', requested: stored, previous, current: LOCAL_ENV, message, error: 'unknown-environment' };
+    }
+
+    if (stored !== LOCAL_ENV && validate) {
       try {
-        const meta = await this.api.storage.getMeta?.(sid);
-        if (meta) {
-          (meta as any).remoteExecEnvironment = name;
-          await this.api.storage.saveMeta?.(meta);
-        }
-      } catch {
-        // 持久化失败不影响当前 turn 运行时状态
+        await this.validateTarget(stored);
+      } catch (err) {
+        const msg = errorMessage(err);
+        const message = `对话记录的 remote-exec 环境为 ${this.formatEnvironmentLabel(stored)}，但连接失败：${msg}\n已回退到：${LOCAL_ENV}`;
+        this.sessionCache.set(sessionId, LOCAL_ENV);
+        this.sessionErrors.set(sessionId, message);
+        this.emitChange();
+        return { ok: false, sessionId, source: 'metadata', requested: stored, previous, current: LOCAL_ENV, message, error: msg };
       }
     }
 
-    return { previous, current: name };
+    this.sessionCache.set(sessionId, stored);
+    this.sessionErrors.delete(sessionId);
+    this.emitChange();
+    return {
+      ok: true,
+      sessionId,
+      source: 'metadata',
+      requested: stored,
+      previous,
+      current: stored,
+      message: `已从对话元数据恢复 remote-exec 环境：${this.formatEnvironmentLabel(stored)}`,
+    };
+  }
+
+  /**
+   * 切换活动服务器（验证成功后写入 session meta，立即持久化）。
+   * switch_server 工具和 /env 命令调用。
+   */
+  async setActive(name: string, options: EnvironmentSwitchOptions = {}): Promise<EnvironmentSwitchResult> {
+    const target = name.trim();
+    if (!target) throw new Error('服务器名不能为空');
+
+    const sid = this.resolveSessionId(options.sessionId);
+    const previous = this.getActive(sid);
+
+    if (!this.isKnownEnvironment(target)) {
+      throw new Error(`未知服务器 "${target}"。可用服务器：${this.listEnvs().map(e => e.name).join(', ')}`);
+    }
+
+    if (target !== LOCAL_ENV && options.validate !== false) {
+      try {
+        await this.validateTarget(target);
+      } catch (err) {
+        throw new Error(`无法切换到服务器 "${target}"：${errorMessage(err)}。当前仍为 "${previous}"。`);
+      }
+    }
+
+    let persisted = false;
+    let warning: string | undefined;
+
+    if (sid) {
+      this.sessionCache.set(sid, target);
+      this.sessionErrors.delete(sid);
+
+      if (options.persist !== false) {
+        try {
+          const meta = await this.api.storage.getMeta?.(sid);
+          if (meta) {
+            if (this.api.storage.saveMeta) {
+              (meta as any).remoteExecEnvironment = target;
+              await this.api.storage.saveMeta(meta);
+              persisted = true;
+            } else {
+              warning = '当前存储后端不支持保存会话元数据，环境仅在本次运行中生效';
+            }
+          } else {
+            warning = `未找到会话元数据，当前环境仅在本次运行中生效 (session=${sid})`;
+          }
+        } catch (err) {
+          warning = `保存 remote-exec 环境到会话元数据失败：${errorMessage(err)}`;
+        }
+      }
+    }
+
+    this.emitChange();
+    return { previous, current: target, persisted, warning };
   }
 
   /** 清除指定会话的缓存（对话关闭/清理时调用，防止内存泄漏） */
   clearSession(sessionId: string): void {
     this.sessionCache.delete(sessionId);
+    this.sessionErrors.delete(sessionId);
+    this.emitChange();
   }
 
   /** 当前活动服务器对应的 ServerEntry；返回 null 表示本机 */
-  getActiveServer(): ServerEntry | null {
-    const name = this.getActive();
+  getActiveServer(sessionId?: string): ServerEntry | null {
+    const name = this.getActive(sessionId);
     if (name === LOCAL_ENV) return null;
     return this.getServers().get(name) ?? null;
   }
@@ -131,4 +300,21 @@ export class EnvironmentManager {
     }
     return list;
   }
+
+  private async validateTarget(name: string): Promise<void> {
+    if (name === LOCAL_ENV || !this.validateRemote) return;
+    await this.validateRemote(name);
+  }
+
+  private formatEnvironmentLabel(name: string): string {
+    if (name === LOCAL_ENV) return LOCAL_ENV;
+    const server = this.getServers().get(name);
+    if (!server) return name;
+    const userHost = server.hostName ? `${server.user ?? '?'}@${server.hostName}` : undefined;
+    return userHost ? `${name} (${userHost})` : name;
+  }
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

@@ -51,17 +51,20 @@ export function buildSwitchEnvironmentTool(envMgr: EnvironmentManager): ToolDefi
     handler: async (args) => {
       const name = (args.name as string | undefined)?.trim();
       if (!name) throw new Error('switch_server: name 不能为空');
-      const { previous, current } = await envMgr.setActive(name);
+      const { previous, current, persisted, warning } = await envMgr.setActive(name, { validate: true, source: 'tool' });
       const after = envMgr.listEnvs().find(e => e.name === current);
       return {
         success: true,
         previous,
         current,
+        validated: current !== 'local',
+        persisted,
+        warning,
         environment: after,
         message:
           previous === current
-            ? `已经在服务器 \"${current}\"，未发生变化。`
-            : `已从 \"${previous}\" 切换到 \"${current}\"。后续工具调用将自动在此服务器执行。`,
+            ? `已经在服务器 \"${current}\"，未发生变化。${warning ? ` 警告：${warning}` : ''}`
+            : `已从 \"${previous}\" 切换到 \"${current}\"。后续工具调用将自动在此服务器执行。${warning ? ` 警告：${warning}` : ''}`,
       };
     },
   };

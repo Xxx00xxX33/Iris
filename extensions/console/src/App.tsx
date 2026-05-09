@@ -38,6 +38,7 @@ import { useModelState } from './hooks/use-model-state';
 import { useTextInput } from './hooks/use-text-input';
 import { createUndoRedoStack, type UndoRedoStack } from './undo-redo';
 import { getSlashCommands, onSlashCommandsChanged } from './slash-command-service';
+import { getStatusSegments, onStatusSegmentsChanged } from './status-segment-service';
 
 // ── Provider 级别映射 ──────────────────────────────────────
 const PROVIDER_LEVELS: Record<string, ThinkingEffortLevel[]> = {
@@ -61,6 +62,7 @@ export function App({
   onReady,
   onSubmit,
   onFileAttach,
+  getCurrentSessionId,
   onRemoveFile: onRemoveFileProp,
   onFileBrowserSelect,
   onFileBrowserGoUp,
@@ -177,6 +179,12 @@ export function App({
   useEffect(() => {
     const disposable = onSlashCommandsChanged(() => setRuntimeSlashCommands(getSlashCommands()));
     setRuntimeSlashCommands(getSlashCommands());
+    return () => disposable.dispose();
+  }, []);
+
+  const [statusSegmentVersion, setStatusSegmentVersion] = useState(0);
+  useEffect(() => {
+    const disposable = onStatusSegmentsChanged(() => setStatusSegmentVersion((v) => v + 1));
     return () => disposable.dispose();
   }, []);
 
@@ -335,6 +343,7 @@ export function App({
     onSubmit: queueAwareSubmit,
     onFileAttach: handleFileAttach,
     onOpenFileBrowser: handleOpenFileBrowser,
+    getCurrentSessionId,
     onUndo,
     onRedo,
     onClearRedoStack,
@@ -554,6 +563,11 @@ export function App({
   const activeMilestone = appState.milestoneSnapshot?.items.find((item) => item.status === 'in_progress');
   const milestoneGeneratingLabel = activeMilestone ? `${activeMilestone.activeForm ?? activeMilestone.title}...` : undefined;
   const effectiveGeneratingLabel = appState.generatingLabel ?? milestoneGeneratingLabel;
+  const rightStatusSegments = useMemo(
+    () => getStatusSegments({ sessionId: getCurrentSessionId?.() }, 'right'),
+    // statusSegmentVersion 由 provider 的 onDidChange 推动刷新；getCurrentSessionId 读取 ConsolePlatform 的当前字段。
+    [statusSegmentVersion, getCurrentSessionId, viewMode, appState.messages.length],
+  );
 
   if (viewMode === 'settings') {
     return (
@@ -745,6 +759,7 @@ export function App({
         pendingFiles={pendingFiles}
         onRemoveFile={handleRemoveFile}
         dynamicCommands={dynamicCommands}
+        statusSegments={rightStatusSegments}
         supportsHeadlessTransition={supportsHeadlessTransition}
       />
     </box>

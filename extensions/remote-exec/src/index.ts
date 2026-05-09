@@ -30,6 +30,7 @@ import { disposeRemoteExecConsoleIntegration, registerRemoteExecConsoleIntegrati
 import { installToolWrappers, type WrapInstaller } from './wrap.js';
 
 const logger = createPluginLogger('remote-exec');
+const REMOTE_EXEC_ENVIRONMENT_SERVICE_ID = 'remote-exec:environment';
 
 // 模块级状态
 let cfg: RemoteExecConfig = parseRemoteExecConfig({});
@@ -43,6 +44,7 @@ let cachedCtx: PluginContext | undefined;
 let switchToolRegistered = false;
 let transferToolRegistered = false;
 let lastConfigSignature = '';
+let envServiceRegistration: { dispose(): void } | undefined;
 
 export default definePlugin({
   name: 'remote-exec',
@@ -112,6 +114,8 @@ export default definePlugin({
       cachedApi.tools.unregister?.(TRANSFER_FILES_TOOL_NAME);
       transferToolRegistered = false;
     }
+    envServiceRegistration?.dispose();
+    envServiceRegistration = undefined;
     disposeRemoteExecConsoleIntegration();
     envMgr = undefined;
     cachedApi = undefined;
@@ -142,7 +146,12 @@ async function reloadAll(ctx: PluginContext, api: IrisAPI): Promise<void> {
 
   rebuildTransport();
 
-  envMgr = new EnvironmentManager(api, () => servers, () => cfg);
+  envMgr = new EnvironmentManager(api, () => servers, () => cfg, async (name) => {
+    if (!transport) throw new Error('remote-exec: SSH transport 未就绪');
+    await transport.validateConnection(name);
+  });
+
+  registerRemoteExecEnvironmentService(api);
 
   // 注册 remote-exec 工具
   reregisterRemoteExecTools(api);
@@ -168,6 +177,42 @@ async function reloadAll(ctx: PluginContext, api: IrisAPI): Promise<void> {
       `default=${cfg.defaultEnvironment} active=${envMgr.getActive()}`,
   );
 }
+
+
+function registerRemoteExecEnvironmentService(api: IrisAPI): void {
+  if (!envMgr || envServiceRegistration) return;
+  if (api.services.has?.(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID)) return;
+
+  envServiceRegistration = api.services.register(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID, {
+    getActive(sessionId?: string) {
+      const name = envMgr!.getActive(sessionId);
+      return {
+        name,
+        isLocal: name === 'local',
+        summary: envMgr!.listEnvs().find((env) => env.name === name),
+      };
+    },
+    listEnvs() {
+      return envMgr!.listEnvs();
+    },
+    setActive(name: string, options?: { sessionId?: string; validate?: boolean; persist?: boolean }) {
+      return envMgr!.setActive(name, options);
+    },
+    restoreForSession(sessionId: string, options?: { validate?: boolean; source?: 'session-load' | 'preload' }) {
+      return envMgr!.restoreForSession(sessionId, options);
+    },
+    clearSession(sessionId: string) {
+      envMgr!.clearSession(sessionId);
+    },
+    onDidChange(listener: () => void) {
+      return envMgr!.onDidChange(listener);
+    },
+  }, {
+    description: 'remote-exec 当前执行环境状态与恢复服务',
+    version: '1.0.0',
+  });
+}
+
 
 function rebuildTransport(): void {
   if (transport) transport.closeAll();

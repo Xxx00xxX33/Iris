@@ -53,6 +53,12 @@ export interface IrisSessionMetaLike {
   cwd?: string;
   createdAt?: string | number | Date;
   platforms?: string[];
+  /** remote-exec 扩展：该对话的当前执行环境名（local 或服务器别名） */
+  remoteExecEnvironment?: string;
+  /** 会话级进度清单最新快照（运行时恢复用，不发送给 LLM） */
+  milestones?: MilestoneSnapshotLike;
+  /** 已完成进度清单的历史归档（UI 重建用，不发送给 LLM） */
+  milestoneArchives?: MilestoneArchiveLike[];
 }
 
 export interface IrisToolInvocationLike {
@@ -109,6 +115,13 @@ export interface MilestoneSnapshotLike {
   sourceAgent?: string;
   /** 应该向哪个前台 Agent 路由此快照；主要用于多 Agent 平台过滤。 */
   routeAgent?: string;
+}
+
+export interface MilestoneArchiveLike {
+  id: string;
+  snapshot: MilestoneSnapshotLike;
+  archivedAt: number;
+  afterHistoryIndex: number;
 }
 
 /** Backend 事件签名（供 SDK 消费者使用，核心类型用 unknown 代替以保持解耦） */
@@ -183,6 +196,8 @@ export interface IrisBackendLike {
   getMilestones?(sessionId: string): MilestoneSnapshotLike | undefined;
   /** 从存储恢复指定 session 的 milestone/task 清单快照 */
   loadMilestones?(sessionId: string): Promise<MilestoneSnapshotLike | undefined>;
+  /** 从存储恢复指定 session 的已完成 milestone 历史归档 */
+  loadMilestoneArchives?(sessionId: string): Promise<MilestoneArchiveLike[]>;
 
   // ── 补全：消除各平台的 as any 访问 ──
 
@@ -335,6 +350,10 @@ export class BackendHandle implements IrisBackendLike {
 
   loadMilestones(sessionId: string): Promise<MilestoneSnapshotLike | undefined> {
     return this._backend.loadMilestones?.(sessionId) ?? Promise.resolve(this.getMilestones(sessionId));
+  }
+
+  loadMilestoneArchives(sessionId: string): Promise<MilestoneArchiveLike[]> {
+    return this._backend.loadMilestoneArchives?.(sessionId) ?? Promise.resolve([]);
   }
 
   // ── 补全方法代理 ──

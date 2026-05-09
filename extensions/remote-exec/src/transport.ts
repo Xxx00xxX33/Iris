@@ -57,6 +57,24 @@ export class SshTransport {
     return this.getServer(alias).transport ?? 'auto';
   }
 
+  /**
+   * 主动验证 SSH 连接/认证是否可用。
+   *
+   * switch_server / /env 在真正切换环境前调用，避免“状态已切换但后续工具才发现
+   * SSH 连接失败”的误导性成功。
+   */
+  async validateConnection(alias: string): Promise<void> {
+    const server = this.getServer(alias);
+    try {
+      const conn = await this.acquireConnection(alias, server);
+      if (!this.sshCfg.reuseConnection) {
+        try { conn.client.end(); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      throw new Error(`remote-exec: 服务器 "${alias}" 连接失败 (${server.user ?? '?'}@${server.hostName}:${server.port}): ${(err as Error).message}`);
+    }
+  }
+
   /** 主动断开所有连接（deactivate / 配置 reload 时调用） */
   closeAll(): void {
     for (const [alias, conn] of this.pool) {
@@ -365,6 +383,8 @@ export class SshTransport {
       }
     }
 
+    const connectCfg = await buildConnectConfig(server, this.sshCfg);
+
     const client = new Client();
     const conn: PooledConnection = {
       client,
@@ -386,8 +406,13 @@ export class SshTransport {
 
     if (this.sshCfg.reuseConnection) this.pool.set(alias, conn);
 
-    const connectCfg = await buildConnectConfig(server, this.sshCfg);
-    client.connect(connectCfg);
+    try {
+      client.connect(connectCfg);
+    } catch (err) {
+      this.pool.delete(alias);
+      try { (client as any).destroy?.(); } catch { /* ignore */ }
+      throw err;
+    }
 
     try {
       await conn.ready;

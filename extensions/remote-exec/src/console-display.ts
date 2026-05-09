@@ -3,6 +3,7 @@ import type { EnvironmentManager } from './environment.js';
 
 const CONSOLE_TOOL_DISPLAY_SERVICE_ID = 'console:tool-display';
 const CONSOLE_SLASH_COMMAND_SERVICE_ID = 'console:slash-command';
+const CONSOLE_STATUS_SEGMENT_SERVICE_ID = 'console:status-segment';
 
 interface DisplayProviderInput {
   toolName: string;
@@ -26,7 +27,17 @@ interface ConsoleSlashCommandServiceLike {
     acceptsArgs?: boolean;
     color?: string;
     getArgSuggestions?: (input: { arg: string; raw: string }) => Array<{ value: string; description?: string; color?: string }>;
-    handle(input: { raw: string; name: string; arg: string }): { message?: string; isError?: boolean; label?: string } | Promise<{ message?: string; isError?: boolean; label?: string } | void> | void;
+    handle(input: { raw: string; name: string; arg: string; sessionId?: string }): { message?: string; isError?: boolean; label?: string } | Promise<{ message?: string; isError?: boolean; label?: string } | void> | void;
+  }): { dispose(): void };
+}
+
+interface ConsoleStatusSegmentServiceLike {
+  register(provider: {
+    id: string;
+    align?: 'left' | 'right';
+    priority?: number;
+    getSnapshot(input: { sessionId?: string }): { id: string; text: string; color?: string; priority?: number; align?: 'left' | 'right' } | undefined;
+    onDidChange?: (listener: () => void) => { dispose(): void };
   }): { dispose(): void };
 }
 
@@ -34,10 +45,13 @@ let displayRegistration: { dispose(): void } | undefined;
 let displayRegistering = false;
 let slashRegistrations: Array<{ dispose(): void }> = [];
 let slashRegistering = false;
+let statusRegistration: { dispose(): void } | undefined;
+let statusRegistering = false;
 
 export function registerRemoteExecConsoleIntegration(api: IrisAPI, envMgr: EnvironmentManager): void {
   registerTransferFilesDisplay(api);
   registerEnvironmentSlashCommands(api, envMgr);
+  registerEnvironmentStatusSegment(api, envMgr);
 }
 
 export function disposeRemoteExecConsoleIntegration(): void {
@@ -48,6 +62,9 @@ export function disposeRemoteExecConsoleIntegration(): void {
     try { registration.dispose(); } catch { /* ignore */ }
   }
   slashRegistering = false;
+  try { statusRegistration?.dispose(); } catch { /* ignore */ }
+  statusRegistration = undefined;
+  statusRegistering = false;
 }
 
 function registerTransferFilesDisplay(api: IrisAPI): void {
@@ -72,24 +89,38 @@ function registerEnvironmentSlashCommands(api: IrisAPI, envMgr: EnvironmentManag
   void api.services.waitFor<ConsoleSlashCommandServiceLike>(CONSOLE_SLASH_COMMAND_SERVICE_ID, 5000)
     .then((service) => {
       if (slashRegistrations.length > 0) return;
-      const switchTo = async (name: string) => {
-        const sid = api.agentManager?.getActiveSessionId?.();
+      const switchTo = async (name: string, sessionId?: string) => {
+        const sid = sessionId ?? api.agentManager?.getActiveSessionId?.();
         if (sid) {
           // 有活跃对话 → 写入 session meta
-          const { previous, current } = await envMgr.setActive(name);
-          return {
-            message: previous === current
-              ? `当前已经在服务器：${current}`
-              : `已切换服务器：${previous} → ${current}`,
-            label: 'env',
-          };
+          try {
+            const { previous, current, warning } = await envMgr.setActive(name, { sessionId: sid, validate: true, source: 'slash' });
+            return {
+              message: previous === current
+                ? `当前已经在服务器：${current}${warning ? `\n警告：${warning}` : ''}`
+                : `已切换服务器：${previous} → ${current}${warning ? `\n警告：${warning}` : ''}`,
+              label: 'env',
+            };
+          } catch (err) {
+            return {
+              message: `切换服务器失败：${errorMessage(err)}\n当前服务器仍为：${envMgr.getActive(sid)}`,
+              isError: true,
+              label: 'env',
+            };
+          }
         }
         // 无活跃对话 → 写入 agent 级作为新对话默认
-        const store = api.globalStore.agent(api.agentName ?? '__global__').namespace('remote-exec');
-        const prev = store.get<string>('activeEnvironment') ?? 'local';
-        store.set('activeEnvironment', name);
-        const msg = prev === name ? `已将默认服务器设为：${name}（新对话生效）` : `已将默认服务器从 ${prev} 改为：${name}（新对话生效）`;
-        return { message: msg, label: 'env' };
+        try {
+          // 复用 setActive 做别名/SSH 验证；无 sessionId 时不会写 session meta。
+          await envMgr.setActive(name, { validate: true, persist: false, source: 'slash' });
+          const store = api.globalStore.agent(api.agentName ?? '__global__').namespace('remote-exec');
+          const prev = store.get<string>('activeEnvironment') ?? 'local';
+          store.set('activeEnvironment', name);
+          const msg = prev === name ? `已将默认服务器设为：${name}（新对话生效）` : `已将默认服务器从 ${prev} 改为：${name}（新对话生效）`;
+          return { message: msg, label: 'env' };
+        } catch (err) {
+          return { message: `设置默认服务器失败：${errorMessage(err)}`, isError: true, label: 'env' };
+        }
       };
 
       slashRegistrations.push(service.register({
@@ -107,10 +138,10 @@ function registerEnvironmentSlashCommands(api: IrisAPI, envMgr: EnvironmentManag
                 : [env.description, env.hostName ? `${env.user ?? '?'}@${env.hostName}` : undefined].filter(Boolean).join(' · '),
             }));
         },
-        async handle({ arg }) {
+        async handle({ arg, sessionId }) {
           const name = arg.trim();
-          if (name) return switchTo(name);
-          const current = envMgr.getActive();
+          if (name) return switchTo(name, sessionId);
+          const current = envMgr.getActive(sessionId);
           const lines = [
             `当前服务器：${current}`,
             '可用服务器：',
@@ -126,11 +157,47 @@ function registerEnvironmentSlashCommands(api: IrisAPI, envMgr: EnvironmentManag
     .finally(() => { slashRegistering = false; });
 }
 
+function registerEnvironmentStatusSegment(api: IrisAPI, envMgr: EnvironmentManager): void {
+  if (statusRegistration || statusRegistering) return;
+  statusRegistering = true;
+  void api.services.waitFor<ConsoleStatusSegmentServiceLike>(CONSOLE_STATUS_SEGMENT_SERVICE_ID, 5000)
+    .then((service) => {
+      if (statusRegistration) return;
+      statusRegistration = service.register({
+        id: 'remote-exec.environment',
+        align: 'right',
+        priority: 100,
+        getSnapshot({ sessionId }) {
+          const state = envMgr.getActiveState(sessionId);
+          return {
+            id: 'remote-exec.environment',
+            text: `env ${state.name}${state.error ? ' ⚠' : ''}`,
+            color: state.error ? 'error' : (state.isLocal ? 'dim' : 'warn'),
+            align: 'right',
+            priority: 100,
+          };
+        },
+        onDidChange(listener) {
+          return envMgr.onDidChange(listener);
+        },
+      });
+    })
+    .catch(() => {})
+    .finally(() => { statusRegistering = false; });
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+
 function formatArgsSummary(args: Record<string, unknown>): string {
   const first = Array.isArray(args.transfers) && args.transfers.length > 0 ? args.transfers[0] : args;
   if (!first || typeof first !== 'object' || Array.isArray(first)) {
     return Array.isArray(args.transfers) ? `${args.transfers.length} transfers` : '';
   }
+
+
   const obj = first as Record<string, unknown>;
   const from = `${String(obj.fromEnvironment || '')}:${String(obj.fromPath || '')}`;
   const to = `${String(obj.toEnvironment || '')}:${String(obj.toPath || '')}`;

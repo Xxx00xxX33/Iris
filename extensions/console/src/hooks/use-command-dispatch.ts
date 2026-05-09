@@ -33,6 +33,8 @@ interface UseCommandDispatchOptions {
   onFileAttach: (filePath: string) => void;
   /** 打开文件浏览器视图 */
   onOpenFileBrowser: () => void;
+  /** 获取 Console 当前会话 ID，传递给扩展 slash command */
+  getCurrentSessionId?: () => string;
   onUndo: () => Promise<boolean>;
   onRedo: () => Promise<boolean>;
   onClearRedoStack: () => void;
@@ -89,6 +91,7 @@ export function useCommandDispatch({
   onSubmit,
   onFileAttach,
   onOpenFileBrowser,
+  getCurrentSessionId,
   onUndo,
   onRedo,
   onClearRedoStack,
@@ -444,7 +447,7 @@ export function useCommandDispatch({
     }
 
     if (text.startsWith('/') && canHandleSlashCommand(text)) {
-      void dispatchSlashCommand(text).then((result) => {
+      void dispatchSlashCommand(text, { sessionId: getCurrentSessionId?.() }).then((result) => {
         if (!result?.message) return;
         appendCommandMessage(setMessages, result.message, {
           isError: result.isError,
@@ -467,6 +470,7 @@ export function useCommandDispatch({
     onFileAttach,
     onOpenFileBrowser,
     modelState,
+    getCurrentSessionId,
     onClearRedoStack,
     onExit,
     onEnterHeadless,

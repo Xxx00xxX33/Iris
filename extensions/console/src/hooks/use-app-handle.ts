@@ -16,8 +16,12 @@ export interface AppHandle {
   addMessage(role: 'user' | 'assistant', content: string, meta?: MessageMeta): void;
   addStructuredMessage(role: 'user' | 'assistant', parts: MessagePart[], meta?: MessageMeta): void;
   addErrorMessage(text: string): void;
+  /** 重放历史消息：不触发 live milestone 归档消费，也不清空 redo。 */
+  addHistoryMessage(role: 'user' | 'assistant', parts: MessagePart[], meta?: MessageMeta): void;
+  /** 插入/附加一条历史 milestone 归档消息。 */
+  addMilestoneArchive(snapshot: MilestoneSnapshotLike, archivedAt?: number): void;
   /** 添加一次性命令消息（如 shell 输出、/file 反馈），下次用户发消息时自动清除 */
-  addCommandMessage(text: string): void;
+  addCommandMessage(text: string, options?: { label?: string; isError?: boolean }): void;
   startStream(): void;
   pushStreamParts(parts: MessagePart[]): void;
   endStream(): void;
@@ -192,7 +196,7 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
       return snapshot;
     };
 
-    const appendMilestoneArchive = (prev: ChatMessage[], snapshot: MilestoneSnapshotLike): ChatMessage[] => {
+    const appendMilestoneArchive = (prev: ChatMessage[], snapshot: MilestoneSnapshotLike, archivedAt?: number): ChatMessage[] => {
       const part: MessagePart = { type: 'milestone_snapshot', snapshot };
       const last = prev[prev.length - 1];
       if (last?.role === 'assistant' && !last.isError && !last.isCommand && !last.isSummary && !last.isNotificationSummary) {
@@ -207,7 +211,7 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
         id: nextMsgId(),
         role: 'assistant',
         parts: [part],
-        createdAt: Date.now(),
+        createdAt: archivedAt ?? Date.now(),
       }];
     };
 
@@ -227,6 +231,26 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
           { id: nextMsgId(), role, parts: [textPart], createdAt: Date.now(), ...meta },
         ]);
       },
+      addHistoryMessage(role, parts, meta) {
+        const normalizedParts = mergeMessageParts(parts);
+        if (normalizedParts.length === 0) return;
+        if (role === 'assistant') {
+          setMessages((prev) => appendAssistantParts(prev, normalizedParts, meta));
+          return;
+        }
+        setMessages((prev) => [
+          ...prev,
+          { id: nextMsgId(), role, parts: normalizedParts, ...meta },
+        ]);
+      },
+      addMilestoneArchive(snapshot, archivedAt) {
+        archivedMilestoneUpdatedAtRef.current = snapshot.updatedAt;
+        if (milestoneSnapshotRef.current?.updatedAt === snapshot.updatedAt && snapshot.stats.open === 0) {
+          milestoneSnapshotRef.current = null;
+          setMilestoneSnapshot(null);
+        }
+        setMessages((prev) => appendMilestoneArchive(prev, snapshot, archivedAt));
+      },
       addErrorMessage(text) {
         // 添加错误消息前，先移除可能存在的空 assistant 占位消息
         setMessages((prev) => [
@@ -234,10 +258,10 @@ export function useAppHandle({ onReady, undoRedoRef, drainCallbackRef, setPendin
           { id: nextMsgId(), role: 'assistant', parts: [{ type: 'text', text }], isError: true },
         ]);
       },
-      addCommandMessage(text) {
+      addCommandMessage(text, options) {
         setMessages((prev) => [
           ...prev.filter((m) => !m.isCommand),
-          { id: nextMsgId(), role: 'assistant', parts: [{ type: 'text', text }], isCommand: true },
+          { id: nextMsgId(), role: 'assistant', parts: [{ type: 'text', text }], isCommand: true, commandLabel: options?.label, isError: options?.isError },
         ]);
       },
       addStructuredMessage(role, parts, meta) {

@@ -48,6 +48,7 @@ import type { ConsoleConfig } from './console-config';
 import { resolveConsoleConfig } from './console-config';
 import { CONSOLE_TOOL_DISPLAY_SERVICE_ID, consoleToolDisplayService } from './tool-display-service';
 import { CONSOLE_SLASH_COMMAND_SERVICE_ID, consoleSlashCommandService } from './slash-command-service';
+import { CONSOLE_STATUS_SEGMENT_SERVICE_ID, consoleStatusSegmentService } from './status-segment-service';
 
 /** 从 shell 命令生成前缀通配模式（如 "npm install express" → "npm install *"） */
 function generateCommandPattern(command: string): string {
@@ -70,6 +71,23 @@ type DiscoverLanInstancesFn = () => Promise<import('./remote-wizard').Discovered
 const REMOTE_CONNECT_WS_CLIENT_SERVICE = 'remote-connect:WsIPCClient';
 const REMOTE_CONNECT_DISCOVERY_SERVICE = 'remote-connect:discoverLanInstances';
 const PLAN_MODE_SERVICE_ID = 'plan-mode';
+const REMOTE_EXEC_ENVIRONMENT_SERVICE_ID = 'remote-exec:environment';
+
+interface RemoteExecEnvironmentRestoreResultLike {
+  ok: boolean;
+  sessionId: string;
+  source: 'metadata' | 'default' | 'cache';
+  requested?: string;
+  previous: string;
+  current: string;
+  message: string;
+  error?: string;
+}
+
+interface RemoteExecEnvironmentServiceLike {
+  restoreForSession(sessionId: string, options?: { validate?: boolean; source?: 'session-load' | 'preload' }): Promise<RemoteExecEnvironmentRestoreResultLike>;
+  clearSession?(sessionId: string): void;
+}
 
 interface PlanModeServiceLike {
   enter(sessionId: string): { planFilePath: string; active: boolean };
@@ -534,6 +552,13 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
   private backendListenerDisposers: Array<() => void> = [];
   /** 当前是否正在生成响应（用于阻止 addErrorMessage 破坏流式占位消息） */
   private _isGenerating = false;
+  /**
+   * 历史会话加载序号。加载期间如果用户发送了新消息或再次加载会话，序号会变化，
+   * 用于阻止异步完成的 /load 环境恢复提示插入到错误位置。
+   */
+  private sessionLoadEpoch = 0;
+  /** 用户真实发送到 Backend 的消息序号（不含普通 slash command UI 反馈）。 */
+  private userInputEpoch = 0;
 
   /** 待发送的文件附件（由 /file 命令添加，handleInput 时消费） */
   private _pendingImages: import('irises-extension-sdk').ImageInput[] = [];
@@ -574,10 +599,35 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         version: '1.0.0',
       });
     }
+    if (services && !services.has(CONSOLE_STATUS_SEGMENT_SERVICE_ID)) {
+      services.register(CONSOLE_STATUS_SEGMENT_SERVICE_ID, consoleStatusSegmentService, {
+        description: 'Console TUI 状态栏扩展片段服务',
+        version: '1.0.0',
+      });
+    }
   }
 
   private getPlanModeService(): PlanModeServiceLike | undefined {
     return (this.api?.services as any)?.get?.(PLAN_MODE_SERVICE_ID) as PlanModeServiceLike | undefined;
+  }
+
+  private getRemoteExecEnvironmentService(): RemoteExecEnvironmentServiceLike | undefined {
+    return (this.api?.services as any)?.get?.(REMOTE_EXEC_ENVIRONMENT_SERVICE_ID) as RemoteExecEnvironmentServiceLike | undefined;
+  }
+
+  private async restoreRemoteExecEnvironmentForSession(sessionId: string, validate: boolean): Promise<RemoteExecEnvironmentRestoreResultLike | undefined> {
+    const service = this.getRemoteExecEnvironmentService();
+    if (!service) return undefined;
+    try {
+      return await service.restoreForSession(sessionId, { validate, source: 'session-load' });
+    } catch (err) {
+      const message = `remote-exec 环境恢复失败：${err instanceof Error ? err.message : String(err)}`;
+      return { ok: false, sessionId, source: 'metadata', previous: 'unknown', current: 'local', message, error: message };
+    }
+  }
+
+  private clearRemoteExecSession(sessionId: string): void {
+    try { this.getRemoteExecEnvironmentService()?.clearSession?.(sessionId); } catch { /* ignore */ }
   }
 
   private syncPlanModeStatus(): void {
@@ -907,6 +957,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         },
         onSubmit: (text: string) => this.handleInput(text),
         onFileAttach: (filePath: string) => this.handleFileAttach(filePath),
+        getCurrentSessionId: () => this.sessionId,
         onRemoveFile: (index: number) => this.handleRemoveFile(index),
         onFileBrowserSelect: (dirPath: string, entry: any, showHidden: boolean) => {
           this.handleFileBrowserSelect(dirPath, entry, showHidden);
@@ -1478,6 +1529,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     this._activeHandles.clear();
     this.appHandle?.setPlanModeActive(false);
     this.appHandle?.setMilestones(null);
+    this.clearRemoteExecSession(this.sessionId);
   }
 
   /** 打开工具详情 */
@@ -1728,6 +1780,9 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
     this.sessionId = id;
     this.currentToolIds.clear();
     this._activeHandles.clear();
+    const loadEpoch = ++this.sessionLoadEpoch;
+    const userInputEpochAtLoadStart = this.userInputEpoch;
+    const envRestorePromise = this.restoreRemoteExecEnvironmentForSession(id, true);
     this.syncPlanModeStatus();
     await this.syncMilestones();
 
@@ -1768,6 +1823,20 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
         this.appHandle?.setUsage(msg.usageMetadata);
       }
     }
+
+    const envRestore = await envRestorePromise;
+    // 如果用户在环境恢复完成前已经发送了新消息，或又切换/加载了其他会话，
+    // 就不要再追加这条临时 env 消息。否则它可能出现在用户消息/流式回复之后，
+    // 造成“加载提示”与新 turn 混排。状态栏仍会通过 remote-exec 环境服务更新。
+    if (
+      envRestore
+      && this.sessionId === id
+      && this.sessionLoadEpoch === loadEpoch
+      && this.userInputEpoch === userInputEpochAtLoadStart
+      && !this._isGenerating
+    ) {
+      this.appHandle?.addCommandMessage(envRestore.message, { label: 'env', isError: !envRestore.ok });
+    }
   }
 
   private async handleDeleteSession(id: string): Promise<{ ok: boolean; message: string; deletedCurrent?: boolean }> {
@@ -1775,6 +1844,7 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
       const deletedCurrent = id === this.sessionId;
       this.backend.abortChat?.(id);
       await this.backend.clearSession(id);
+      this.clearRemoteExecSession(id);
       if (deletedCurrent) {
         this.handleNewSession();
       }
@@ -2619,6 +2689,8 @@ export class ConsolePlatform extends PlatformAdapter implements ForegroundPlatfo
    * 3. 队列排空或被 abort 后，取消生成状态
    */
   private async handleInput(text: string): Promise<void> {
+    this.userInputEpoch += 1;
+    this.sessionLoadEpoch += 1;
     this._isGenerating = true;
     this.appHandle?.setGenerating(true);
 

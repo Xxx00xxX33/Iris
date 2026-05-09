@@ -14,6 +14,7 @@ import type { Command } from '../input-commands';
 import { StatusBar } from './StatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { C } from '../theme';
+import type { ConsoleStatusSegmentSnapshot } from '../status-segment-service';
 
 interface BottomPanelProps {
   hasMessages: boolean;
@@ -63,6 +64,8 @@ interface BottomPanelProps {
   /** 移除指定索引的待发送文件 */
   onRemoveFile: (index: number) => void;
   dynamicCommands?: Command[];
+  /** 右侧状态栏扩展片段（显示在 ctx 右侧） */
+  statusSegments?: ConsoleStatusSegmentSnapshot[];
   supportsHeadlessTransition?: boolean;
 }
 
@@ -101,6 +104,7 @@ export function BottomPanel({
   pendingFiles,
   onRemoveFile,
   dynamicCommands,
+  statusSegments,
   supportsHeadlessTransition,
 }: BottomPanelProps) {
   // 输入框仅在审批/确认对话框期间完全禁用
@@ -159,6 +163,7 @@ export function BottomPanel({
             delegateTaskCount={delegateTaskCount}
             backgroundTaskTokens={backgroundTaskTokens}
             backgroundTaskSpinnerFrame={backgroundTaskSpinnerFrame}
+            statusSegments={statusSegments}
           />
         </box>
       )}

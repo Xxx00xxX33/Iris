@@ -12,6 +12,8 @@ export interface AppProps {
   onSubmit: (text: string) => void;
   /** 附加文件到下一条消息（/file 命令） */
   onFileAttach?: (filePath: string) => void;
+  /** 获取 Console 当前会话 ID（用于 /env 等扩展 slash command，不依赖 Backend turn 上下文） */
+  getCurrentSessionId?: () => string;
   /** 移除指定索引的待发送文件附件 */
   onRemoveFile?: (index: number) => void;
   /** 文件浏览器操作回调 */

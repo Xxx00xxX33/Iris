@@ -3,6 +3,7 @@
 import React from 'react';
 import { C } from '../theme';
 import { SPINNER_FRAMES, ICONS } from '../terminal-compat';
+import type { ConsoleStatusSegmentSnapshot } from '../status-segment-service';
 
 interface StatusBarProps {
   agentName?: string;
@@ -23,9 +24,19 @@ interface StatusBarProps {
   backgroundTaskTokens?: number;
   /** chunk 心跳驱动的 spinner 帧索引 */
   backgroundTaskSpinnerFrame?: number;
+  /** 显示在右下角 ctx 右侧的扩展状态片段 */
+  statusSegments?: ConsoleStatusSegmentSnapshot[];
 }
 
-export function StatusBar({ agentName, modeName, modelName, contextTokens, contextWindow, queueSize, planModeActive, remoteHost, backgroundTaskCount, delegateTaskCount, backgroundTaskTokens, backgroundTaskSpinnerFrame }: StatusBarProps) {
+function statusColor(color: ConsoleStatusSegmentSnapshot['color'] | undefined): string {
+  if (color === 'dim') return C.dim;
+  if (color === 'accent') return C.accent;
+  if (color === 'warn') return C.warn;
+  if (color === 'error') return C.error;
+  return color ?? C.dim;
+}
+
+export function StatusBar({ agentName, modeName, modelName, contextTokens, contextWindow, queueSize, planModeActive, remoteHost, backgroundTaskCount, delegateTaskCount, backgroundTaskTokens, backgroundTaskSpinnerFrame, statusSegments }: StatusBarProps) {
   const resolvedModeName = modeName ?? 'normal';
   const modeNameCapitalized = resolvedModeName.charAt(0).toUpperCase() + resolvedModeName.slice(1);
   const contextStr = contextTokens > 0 ? contextTokens.toLocaleString() : '-';
@@ -87,7 +98,15 @@ export function StatusBar({ agentName, modeName, modelName, contextTokens, conte
         </box>
       ) : null}
       <box flexShrink={0}>
-        <text fg={C.dim}> ctx {contextStr}{contextLimitStr}{contextPercent}</text>
+        <text>
+          <span fg={C.dim}> ctx {contextStr}{contextLimitStr}{contextPercent}</span>
+          {(statusSegments ?? []).map((segment) => (
+            <React.Fragment key={segment.id}>
+              <span fg={C.dim}> {ICONS.separator} </span>
+              <span fg={statusColor(segment.color)}>{segment.text}</span>
+            </React.Fragment>
+          ))}
+        </text>
       </box>
     </box>
   );

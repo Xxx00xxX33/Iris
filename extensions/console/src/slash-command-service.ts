@@ -13,7 +13,11 @@ export interface ConsoleSlashCommandHandlerInput {
   raw: string;
   name: string;
   arg: string;
+  /** Console 当前会话 ID。UI slash command 不在 Backend turn 上下文内，不能依赖 agentManager.getActiveSessionId()。 */
+  sessionId?: string;
 }
+
+export type ConsoleSlashCommandDispatchContext = Pick<ConsoleSlashCommandHandlerInput, 'sessionId'>;
 
 export interface ConsoleSlashCommandDefinition extends Command {
   handle(input: ConsoleSlashCommandHandlerInput): ConsoleSlashCommandResult | Promise<ConsoleSlashCommandResult | void> | void;
@@ -23,7 +27,7 @@ export interface ConsoleSlashCommandService {
   register(command: ConsoleSlashCommandDefinition): Disposable;
   list(): Command[];
   canHandle(raw: string): boolean;
-  dispatch(raw: string): Promise<ConsoleSlashCommandResult | undefined>;
+  dispatch(raw: string, context?: ConsoleSlashCommandDispatchContext): Promise<ConsoleSlashCommandResult | undefined>;
   onDidChange(listener: () => void): Disposable;
 }
 
@@ -72,10 +76,15 @@ export const consoleSlashCommandService: ConsoleSlashCommandService = {
   canHandle(raw) {
     return !!matchCommand(raw);
   },
-  async dispatch(raw) {
+  async dispatch(raw, context) {
     const matched = matchCommand(raw);
     if (!matched) return undefined;
-    const result = await matched.command.handle({ raw: raw.trim(), name: matched.command.name, arg: matched.arg });
+    const result = await matched.command.handle({
+      raw: raw.trim(),
+      name: matched.command.name,
+      arg: matched.arg,
+      sessionId: context?.sessionId,
+    });
     return result ?? {};
   },
   onDidChange(listener) {
@@ -96,6 +105,6 @@ export function canHandleSlashCommand(raw: string): boolean {
   return consoleSlashCommandService.canHandle(raw);
 }
 
-export function dispatchSlashCommand(raw: string): Promise<ConsoleSlashCommandResult | undefined> {
-  return consoleSlashCommandService.dispatch(raw);
+export function dispatchSlashCommand(raw: string, context?: ConsoleSlashCommandDispatchContext): Promise<ConsoleSlashCommandResult | undefined> {
+  return consoleSlashCommandService.dispatch(raw, context);
 }

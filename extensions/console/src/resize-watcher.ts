@@ -10,10 +10,34 @@ interface InternalResizeAwareRenderer {
   off: (event: string, listener: (...args: any[]) => void) => unknown;
 }
 
-function getTerminalSize(renderer: InternalResizeAwareRenderer): { width: number; height: number } {
-  const width = process.stdout.columns || renderer.width || 80;
-  const height = process.stdout.rows || renderer.height || 24;
-  return { width, height };
+interface TerminalSize {
+  width: number;
+  height: number;
+}
+
+function isSameSize(a: TerminalSize | null | undefined, b: TerminalSize | null | undefined): boolean {
+  return !!a && !!b && a.width === b.width && a.height === b.height;
+}
+
+function getStdoutTerminalSize(renderer: InternalResizeAwareRenderer): TerminalSize {
+  // Node/Bun 的 stdout.columns/rows 在某些运行时中是缓存值；如果运行时提供
+  // getWindowSize()，优先使用它，因为它通常会直接查询当前 TTY 尺寸。
+  const stdout = process.stdout as typeof process.stdout & {
+    getWindowSize?: () => [number, number];
+  };
+
+  try {
+    const size = stdout.getWindowSize?.();
+    if (Array.isArray(size)) {
+      const [cols, rows] = size;
+      if (cols > 0 && rows > 0) return { width: cols, height: rows };
+    }
+  } catch { /* getWindowSize 可能在非 TTY 或部分 Bun 版本中抛错 */ }
+
+  return {
+    width: stdout.columns || renderer.width || 80,
+    height: stdout.rows || renderer.height || 24,
+  };
 }
 
 /**
@@ -26,7 +50,7 @@ function getTerminalSize(renderer: InternalResizeAwareRenderer): { width: number
  * 此函数通过 `stty size` 命令直接执行 ioctl(TIOCGWINSZ)，获取当前
  * 终端真实尺寸。仅在 Unix 系统可用。
  */
-function queryNativeTerminalSize(): { width: number; height: number } | null {
+function queryNativeTerminalSize(): TerminalSize | null {
   if (process.platform === 'win32') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -63,7 +87,9 @@ export function attachCompiledResizeWatcher(renderer: CliRenderer, isCompiledBin
   }
 
   const internalRenderer = renderer as unknown as InternalResizeAwareRenderer;
-  let { width: lastWidth, height: lastHeight } = getTerminalSize(internalRenderer);
+  let { width: lastWidth, height: lastHeight } = getStdoutTerminalSize(internalRenderer);
+  let lastNativeSize: TerminalSize | null = null;
+  let stdoutSizeStale = false;
   let disposed = false;
 
   const checkAndApply = (width: number, height: number) => {
@@ -78,7 +104,21 @@ export function attachCompiledResizeWatcher(renderer: CliRenderer, isCompiledBin
   // 成本极低，如果运行时能正确更新这些值就能立刻检测到 resize。
   const syncResize = () => {
     if (disposed) return;
-    const { width, height } = getTerminalSize(internalRenderer);
+    const stdoutSize = getStdoutTerminalSize(internalRenderer);
+
+    // 关键修复：Bun 编译后的二进制里 stdout.columns/rows 可能永久停留在
+    // 启动时的旧尺寸。nativeSyncResize 通过 stty 拿到真实尺寸后，如果继续
+    // 信任这个旧 stdout 值，120ms 快速轮询会把 renderer 又改回旧布局，表现
+    // 就是“resize 没生效”。在确认 stdout 已经追上 native 尺寸前，跳过它。
+    if (stdoutSizeStale) {
+      if (isSameSize(stdoutSize, lastNativeSize)) {
+        stdoutSizeStale = false;
+      } else {
+        return;
+      }
+    }
+
+    const { width, height } = stdoutSize;
     checkAndApply(width, height);
   };
 
@@ -87,7 +127,11 @@ export function attachCompiledResizeWatcher(renderer: CliRenderer, isCompiledBin
   const nativeSyncResize = () => {
     if (disposed) return;
     const size = queryNativeTerminalSize();
-    if (size) checkAndApply(size.width, size.height);
+    if (!size) return;
+
+    lastNativeSize = size;
+    stdoutSizeStale = !isSameSize(getStdoutTerminalSize(internalRenderer), size);
+    checkAndApply(size.width, size.height);
   };
 
   const stdoutResizeListener = () => {
@@ -120,6 +164,7 @@ export function attachCompiledResizeWatcher(renderer: CliRenderer, isCompiledBin
   };
 
   internalRenderer.on('destroy', dispose);
+  nativeSyncResize();
   syncResize();
 
   return dispose;
